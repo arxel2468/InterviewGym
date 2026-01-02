@@ -51,10 +51,27 @@ export async function POST(
     })
 
     // Generate feedback
-    const feedback = await generateFeedback(
+    const feedbackResult = await generateFeedback(
       conversationHistory.map((m) => ({ role: m.role, content: m.content })),
       session.difficulty as Difficulty
     )
+
+    // Check if feedback generation failed
+    if ('success' in feedbackResult && feedbackResult.success === false) {
+      console.error('Feedback generation failed:', feedbackResult)
+      // Continue with default values
+    }
+
+    const feedback = 'success' in feedbackResult ? {
+      strengths: ['Unable to analyze'],
+      improvements: ['Unable to analyze'],
+      suggestions: ['Try another session'],
+      overallScore: 5,
+      clarityScore: 5,
+      structureScore: 5,
+      relevanceScore: 5,
+      summary: 'We had trouble analyzing this session.',
+    } : feedbackResult
 
     // Calculate metrics
     const candidateMessages = conversationHistory.filter((m) => m.role === 'candidate')
@@ -101,50 +118,40 @@ export async function POST(
     const today = new Date()
     today.setHours(0, 0, 0, 0)
     
-    const userUpdate = await prisma.user.update({
+    const dbUser = await prisma.user.findUnique({
       where: { id: user.id },
-      data: {
-        totalSessions: { increment: 1 },
-        lastSessionAt: new Date(),
-      },
     })
 
-    // Update streak (simple version)
-    const lastSession = userUpdate.lastSessionAt
-    if (lastSession) {
-      const lastSessionDate = new Date(lastSession)
-      lastSessionDate.setHours(0, 0, 0, 0)
-      const yesterday = new Date(today)
-      yesterday.setDate(yesterday.getDate() - 1)
+    if (dbUser) {
+      const lastSession = dbUser.lastSessionAt
+      let newStreak = dbUser.currentStreak
 
-      if (lastSessionDate.getTime() === yesterday.getTime()) {
-        // Consecutive day - increment streak
-        await prisma.user.update({
-          where: { id: user.id },
-          data: {
-            currentStreak: { increment: 1 },
-            longestStreak: {
-              set: Math.max(userUpdate.longestStreak, userUpdate.currentStreak + 1),
-            },
-          },
-        })
-      } else if (lastSessionDate.getTime() < yesterday.getTime()) {
-        // Streak broken - reset to 1
-        await prisma.user.update({
-          where: { id: user.id },
-          data: {
-            currentStreak: 1,
-          },
-        })
+      if (lastSession) {
+        const lastSessionDate = new Date(lastSession)
+        lastSessionDate.setHours(0, 0, 0, 0)
+        const yesterday = new Date(today)
+        yesterday.setDate(yesterday.getDate() - 1)
+
+        if (lastSessionDate.getTime() === yesterday.getTime()) {
+          // Consecutive day
+          newStreak = dbUser.currentStreak + 1
+        } else if (lastSessionDate.getTime() < yesterday.getTime()) {
+          // Streak broken
+          newStreak = 1
+        }
+        // Same day - no change
+      } else {
+        // First session
+        newStreak = 1
       }
-      // Same day - no change to streak
-    } else {
-      // First session ever
+
       await prisma.user.update({
         where: { id: user.id },
         data: {
-          currentStreak: 1,
-          longestStreak: 1,
+          totalSessions: { increment: 1 },
+          lastSessionAt: new Date(),
+          currentStreak: newStreak,
+          longestStreak: Math.max(dbUser.longestStreak, newStreak),
         },
       })
     }
