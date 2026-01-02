@@ -7,8 +7,29 @@ import { Toaster } from 'sonner'
 const inter = Inter({ subsets: ['latin'] })
 
 export const metadata: Metadata = {
-  title: 'InterviewGym - Prepare for interviews that matter',
-  description: 'Practice interviews with AI that gives you real feedback.',
+  title: {
+    default: 'InterviewGym - Practice Interviews with AI',
+    template: '%s | InterviewGym',
+  },
+  description: 'Practice interviews with an AI that asks real questions, gives honest feedback, and helps you build confidence. Fail safely before you fail expensively.',
+  keywords: ['interview practice', 'mock interview', 'AI interview', 'behavioral interview', 'job interview prep'],
+  authors: [{ name: 'InterviewGym' }],
+  openGraph: {
+    title: 'InterviewGym - Practice Interviews with AI',
+    description: 'Practice interviews with an AI that asks real questions and gives honest feedback.',
+    url: 'https://interviewgym.vercel.app',
+    siteName: 'InterviewGym',
+    type: 'website',
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'InterviewGym - Practice Interviews with AI',
+    description: 'Practice interviews with an AI that asks real questions and gives honest feedback.',
+  },
+  robots: {
+    index: true,
+    follow: true,
+  },
 }
 
 export default function RootLayout({
