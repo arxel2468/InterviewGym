@@ -78,7 +78,7 @@ export function LoginForm() {
       <CardContent className="space-y-4">
         {/* Social Logins */}
         <div className="space-y-3">
-          <Button
+          {/* <Button
             variant="outline"
             className="w-full bg-white hover:bg-zinc-100 text-zinc-900 border-0"
             onClick={handleGoogleLogin}
@@ -107,7 +107,7 @@ export function LoginForm() {
               </svg>
             )}
             Continue with Google
-          </Button>
+          </Button> */}
 
           <Button
             variant="outline"
