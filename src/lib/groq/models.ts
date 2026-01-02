@@ -46,8 +46,6 @@ function isSafetyModel(model: GroqModel): boolean {
 }
 
 function isChatModel(model: GroqModel): boolean {
-  // Must have reasonable context window for conversation
-  // Must NOT be STT, TTS, or safety model
   return (
     model.context_window > 4096 &&
     model.max_completion_tokens > 1000 &&
@@ -62,15 +60,11 @@ function isChatModel(model: GroqModel): boolean {
 // ============================================
 
 function extractParameterCount(modelId: string): number {
-  // Extract numbers followed by 'b' (billion) from model name
-  // e.g., "llama-3.3-70b-versatile" -> 70
-  // e.g., "qwen3-32b" -> 32
   const match = modelId.toLowerCase().match(/(\d+)b/)
   return match ? parseInt(match[1], 10) : 0
 }
 
 function extractVersionNumber(modelId: string): number {
-  // Extract version numbers like v3, v2, etc.
   const match = modelId.toLowerCase().match(/v(\d+)/)
   return match ? parseInt(match[1], 10) : 0
 }
@@ -83,17 +77,14 @@ function rankSTTModels(models: GroqModel[]): string[] {
       const aId = a.id.toLowerCase()
       const bId = b.id.toLowerCase()
       
-      // 1. Turbo variants first (faster for real-time)
       const aTurbo = aId.includes('turbo') ? 1 : 0
       const bTurbo = bId.includes('turbo') ? 1 : 0
       if (bTurbo !== aTurbo) return bTurbo - aTurbo
       
-      // 2. Higher version numbers
       const aVersion = extractVersionNumber(aId)
       const bVersion = extractVersionNumber(bId)
       if (bVersion !== aVersion) return bVersion - aVersion
       
-      // 3. More recent created timestamp
       return b.created - a.created
     })
     .map(m => m.id)
@@ -107,17 +98,14 @@ function rankTTSModels(models: GroqModel[]): string[] {
       const aId = a.id.toLowerCase()
       const bId = b.id.toLowerCase()
       
-      // 1. English variants first (exclude arabic)
       const aArabic = aId.includes('arabic') ? 1 : 0
       const bArabic = bId.includes('arabic') ? 1 : 0
       if (aArabic !== bArabic) return aArabic - bArabic
       
-      // 2. Orpheus preferred (newer technology)
       const aOrpheus = aId.includes('orpheus') ? 1 : 0
       const bOrpheus = bId.includes('orpheus') ? 1 : 0
       if (bOrpheus !== aOrpheus) return bOrpheus - aOrpheus
       
-      // 3. More recent created timestamp
       return b.created - a.created
     })
     .map(m => m.id)
@@ -131,22 +119,18 @@ function rankChatModels(models: GroqModel[]): string[] {
       const aId = a.id.toLowerCase()
       const bId = b.id.toLowerCase()
       
-      // 1. Larger parameter count
       const aParams = extractParameterCount(aId)
       const bParams = extractParameterCount(bId)
       if (bParams !== aParams) return bParams - aParams
       
-      // 2. "versatile" or "instruct" variants preferred
       const aVersatile = (aId.includes('versatile') || aId.includes('instruct')) ? 1 : 0
       const bVersatile = (bId.includes('versatile') || bId.includes('instruct')) ? 1 : 0
       if (bVersatile !== aVersatile) return bVersatile - aVersatile
       
-      // 3. Larger context window
       if (b.context_window !== a.context_window) {
         return b.context_window - a.context_window
       }
       
-      // 4. More recent created timestamp
       return b.created - a.created
     })
     .map(m => m.id)
@@ -163,17 +147,20 @@ async function fetchModelsFromGroq(): Promise<GroqModel[]> {
 
   const response = await groq.models.list()
   
-  return response.data
-    .filter(m => m.active)
+  // Cast to any because Groq SDK types don't include all fields returned by API
+  const models = response.data as any[]
+  
+  return models
+    .filter(m => m.active !== false)
     .map(m => ({
       id: m.id,
       object: m.object,
       created: m.created,
       owned_by: m.owned_by,
-      active: m.active,
-      context_window: m.context_window,
-      max_completion_tokens: m.max_completion_tokens,
-    })) as GroqModel[]
+      active: m.active ?? true,
+      context_window: m.context_window ?? 0,
+      max_completion_tokens: m.max_completion_tokens ?? 0,
+    }))
 }
 
 export async function refreshModelCache(): Promise<ModelRankings> {
@@ -188,7 +175,6 @@ export async function refreshModelCache(): Promise<ModelRankings> {
   const now = new Date()
   const expiresAt = new Date(now.getTime() + CACHE_DURATION_MS)
   
-  // Upsert to database (single row with id="singleton")
   await prisma.modelCache.upsert({
     where: { id: 'singleton' },
     update: {
@@ -213,7 +199,7 @@ export async function refreshModelCache(): Promise<ModelRankings> {
   console.log('Model cache refreshed:', {
     stt: sttModels,
     tts: ttsModels,
-    chat: chatModels.slice(0, 5), // Log first 5 only
+    chat: chatModels.slice(0, 5),
   })
   
   return {
@@ -227,12 +213,10 @@ export async function refreshModelCache(): Promise<ModelRankings> {
 }
 
 export async function getModelRankings(): Promise<ModelRankings> {
-  // Try to get from cache
   const cached = await prisma.modelCache.findUnique({
     where: { id: 'singleton' },
   })
   
-  // If cache exists and not expired, use it
   if (cached && new Date() < new Date(cached.expiresAt)) {
     return {
       stt: cached.sttModels as string[],
@@ -244,7 +228,6 @@ export async function getModelRankings(): Promise<ModelRankings> {
     }
   }
   
-  // Cache missing or expired, refresh
   return await refreshModelCache()
 }
 
@@ -277,10 +260,6 @@ export async function getModelFallbacks(category: ModelCategory): Promise<string
       return []
   }
 }
-
-// ============================================
-// MANUAL REFRESH ENDPOINT HELPER
-// ============================================
 
 export async function forceRefreshCache(): Promise<ModelRankings> {
   return await refreshModelCache()

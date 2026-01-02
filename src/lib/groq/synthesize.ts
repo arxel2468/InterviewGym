@@ -1,5 +1,4 @@
-import { getGroqApiKey } from './client'
-import { executeWithFallback, getTTSFallbackMessage, TTSFallbackLevel } from './fallback'
+import { getBestModel } from './models'
 
 export type SynthesisResult = {
   audio: ArrayBuffer
@@ -16,56 +15,71 @@ export type SynthesisError = {
   shouldUseBrowserTTS: true
 }
 
+export type TTSFallbackLevel = 'primary' | 'secondary' | 'browser' | 'failed'
+
+// Available voices for Orpheus model
+const VOICES = ['tara', 'autumn', 'leah', 'dan', 'josh'] as const
+type Voice = typeof VOICES[number]
+
 export async function synthesizeSpeech(
   text: string,
-  onRetry?: (message: string, attempt: number) => void
+  voice: Voice = 'tara'
 ): Promise<SynthesisResult | SynthesisError> {
-  const result = await executeWithFallback<ArrayBuffer>(
-    'tts',
-    async (modelId) => {
-      // Use direct fetch since SDK may not support audio.speech
-      const response = await fetch('https://api.groq.com/openai/v1/audio/speech', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${getGroqApiKey()}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          model: modelId,
-          input: text,
-          voice: 'tara', // Default voice
-          response_format: 'wav',
-        }),
-      })
-
-      if (!response.ok) {
-        const errorText = await response.text()
-        throw new Error(`TTS API error: ${response.status} - ${errorText}`)
-      }
-
-      return response.arrayBuffer()
-    },
-    onRetry
-  )
-
-  if (!result.success) {
-    // Signal to use browser TTS as final fallback
+  // Get best available TTS model
+  const model = await getBestModel('tts')
+  
+  if (!model) {
+    console.warn('No TTS model available, will use browser TTS')
     return {
       success: false,
-      error: result.error,
-      friendlyMessage: getTTSFallbackMessage('browser'),
+      error: 'No TTS model available',
+      friendlyMessage: "Our cloud interviewers are busy. Using your browser's voice instead!",
       shouldUseBrowserTTS: true,
     }
   }
 
-  const fallbackLevel: TTSFallbackLevel = result.wasDegraded ? 'secondary' : 'primary'
+  try {
+    console.log(`Using TTS model: ${model}, voice: ${voice}`)
 
-  return {
-    audio: result.data,
-    model: result.model,
-    source: 'groq',
-    wasDegraded: result.wasDegraded,
-    fallbackLevel,
+    // Use direct API call since SDK may not have audio.speech typed
+    const response = await fetch('https://api.groq.com/openai/v1/audio/speech', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${process.env.GROQ_API_KEY}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: model,
+        voice: voice,
+        response_format: 'wav',
+        input: text,
+      }),
+    })
+
+    if (!response.ok) {
+      const errorText = await response.text()
+      console.error('TTS API error:', response.status, errorText)
+      throw new Error(`TTS API error: ${response.status}`)
+    }
+
+    const arrayBuffer = await response.arrayBuffer()
+    
+    return {
+      audio: arrayBuffer,
+      model: model,
+      source: 'groq',
+      wasDegraded: false,
+      fallbackLevel: 'primary',
+    }
+  } catch (error) {
+    console.error('TTS synthesis failed:', error)
+    
+    return {
+      success: false,
+      error: String(error),
+      friendlyMessage: "Our cloud interviewers are busy. Using your browser's voice instead!",
+      shouldUseBrowserTTS: true,
+    }
   }
 }
 

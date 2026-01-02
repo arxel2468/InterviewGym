@@ -34,6 +34,7 @@ const FALLBACK_MESSAGES = {
   },
   
   stt: {
+    degraded: "Our primary transcription service is busy. Using backup — might be slightly less accurate.",
     failed: "The interview room has terrible acoustics today. We couldn't hear you. Please try speaking again, or check your microphone.",
   },
   

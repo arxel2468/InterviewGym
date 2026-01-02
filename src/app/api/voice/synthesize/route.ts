@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
-import { synthesizeSpeech } from '@/lib/groq/synthesize'
+import { synthesizeSpeech, shouldUseBrowserFallback } from '@/lib/groq/synthesize'
 import { z } from 'zod'
 
 const requestSchema = z.object({
@@ -24,7 +24,7 @@ export async function POST(request: Request) {
     const result = await synthesizeSpeech(text)
     
     // Check if we should use browser TTS
-    if ('shouldUseBrowserTTS' in result && result.shouldUseBrowserTTS) {
+    if (shouldUseBrowserFallback(result)) {
       return NextResponse.json({
         shouldUseBrowserTTS: true,
         friendlyMessage: result.friendlyMessage,

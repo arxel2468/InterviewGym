@@ -34,9 +34,12 @@ export async function transcribeAudio(
         response_format: 'verbose_json',
       })
 
+      // Cast to any to access duration which exists in verbose_json but not in types
+      const result = transcription as any
+
       return {
         text: transcription.text,
-        duration: transcription.duration || 0,
+        duration: result.duration || 0,
       }
     },
     onRetry
