@@ -11,15 +11,31 @@ const createSessionSchema = z.object({
 
 export async function POST(request: Request) {
   try {
-    const supabase = createClient()
+    const supabase = await createClient()
     const { data: { user } } = await supabase.auth.getUser()
-    
+
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
     const body = await request.json()
     const { interviewType, difficulty, useResume } = createSessionSchema.parse(body)
+
+    // Check for existing in-progress session
+    const existingSession = await prisma.session.findFirst({
+      where: {
+        userId: user.id,
+        status: 'in_progress',
+      },
+    })
+
+    if (existingSession) {
+      // Return the existing session instead of creating a new one
+      return NextResponse.json({
+        session: existingSession,
+        resumed: true,
+      })
+    }
 
     // Create session
     const session = await prisma.session.create({
@@ -32,7 +48,7 @@ export async function POST(request: Request) {
       },
     })
 
-    return NextResponse.json({ session })
+    return NextResponse.json({ session, resumed: false })
   } catch (error) {
     console.error('Create session error:', error)
     if (error instanceof z.ZodError) {

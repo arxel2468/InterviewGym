@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { prisma } from '@/lib/prisma'
 import { generateFeedback, Difficulty } from '@/lib/groq/interviewer'
+import { analyzeText, estimatePauses } from '@/lib/utils/metrics'
 import { z } from 'zod'
 
 const completeSessionSchema = z.object({
@@ -16,17 +17,17 @@ const completeSessionSchema = z.object({
 
 export async function POST(
   request: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const supabase = createClient()
+    const supabase = await createClient()
     const { data: { user } } = await supabase.auth.getUser()
-    
+
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const { id } = params
+    const { id } = await params
     const body = await request.json()
     const { conversationHistory } = completeSessionSchema.parse(body)
 
@@ -39,56 +40,102 @@ export async function POST(
       return NextResponse.json({ error: 'Session not found' }, { status: 404 })
     }
 
-    // Save messages
-    await prisma.message.createMany({
-      data: conversationHistory.map((msg, index) => ({
-        sessionId: id,
-        role: msg.role,
-        content: msg.content,
+    if (session.status === 'completed') {
+      return NextResponse.json({ error: 'Session already completed' }, { status: 400 })
+    }
+
+    // Analyze candidate messages
+    const candidateMessages = conversationHistory.filter((m) => m.role === 'candidate')
+
+    // Aggregate text metrics
+    let totalFillerWords = 0
+    let totalPauses = 0
+    let totalWordCount = 0
+    let longestPauseMs = 0
+
+    const messageAnalyses = candidateMessages.map((msg, index) => {
+      const analysis = analyzeText(msg.content)
+      const pauses = estimatePauses(msg.content)
+
+      totalFillerWords += analysis.fillerWordCount
+      totalPauses += pauses
+      totalWordCount += analysis.wordCount
+
+      // Track longest response time as proxy for longest pause
+      if (msg.durationMs > longestPauseMs) {
+        longestPauseMs = msg.durationMs
+      }
+
+      return {
+        index,
+        ...analysis,
+        pauses,
         durationMs: msg.durationMs,
-        orderIndex: index,
-      })),
+      }
     })
 
-    // Generate feedback
+    // Save messages with analysis
+    await prisma.message.createMany({
+      data: conversationHistory.map((msg, index) => {
+        const analysis = msg.role === 'candidate'
+          ? messageAnalyses.find(a => a.index === candidateMessages.indexOf(msg))
+          : null
+
+        return {
+          sessionId: id,
+          role: msg.role,
+          content: msg.content,
+          durationMs: msg.durationMs,
+          orderIndex: index,
+          fillerWordCount: analysis?.fillerWordCount ?? null,
+          pauseCount: analysis?.pauses ?? null,
+          wordCount: analysis?.wordCount ?? null,
+          longestPauseMs: null, // Would need audio analysis for accurate value
+        }
+      }),
+    })
+
+    // Generate AI feedback
     const feedbackResult = await generateFeedback(
       conversationHistory.map((m) => ({ role: m.role, content: m.content })),
       session.difficulty as Difficulty
     )
 
-    // Check if feedback generation failed
-    if ('success' in feedbackResult && feedbackResult.success === false) {
-      console.error('Feedback generation failed:', feedbackResult)
-      // Continue with default values
-    }
+    // Handle feedback generation failure
+    const feedback = 'success' in feedbackResult && feedbackResult.success === false
+      ? {
+          strengths: ['Session completed'],
+          improvements: ['Unable to generate detailed analysis'],
+          suggestions: ['Try another session for feedback'],
+          overallScore: 5,
+          clarityScore: 5,
+          structureScore: 5,
+          relevanceScore: 5,
+          confidenceScore: 5,
+          summary: 'We had trouble analyzing this session. Your responses were recorded.',
+        }
+      : feedbackResult
 
-    const feedback = 'success' in feedbackResult ? {
-      strengths: ['Unable to analyze'],
-      improvements: ['Unable to analyze'],
-      suggestions: ['Try another session'],
-      overallScore: 5,
-      clarityScore: 5,
-      structureScore: 5,
-      relevanceScore: 5,
-      summary: 'We had trouble analyzing this session.',
-    } : feedbackResult
-
-    // Calculate metrics
-    const candidateMessages = conversationHistory.filter((m) => m.role === 'candidate')
+    // Calculate timing metrics
     const totalDuration = conversationHistory.reduce((sum, m) => sum + m.durationMs, 0)
-    
+    const averageResponseMs = candidateMessages.length > 0
+      ? Math.round(candidateMessages.reduce((sum, m) => sum + m.durationMs, 0) / candidateMessages.length)
+      : 0
+
     // Save metrics
     await prisma.metrics.create({
       data: {
         sessionId: id,
         questionsAnswered: candidateMessages.length,
-        averageResponseMs: candidateMessages.length > 0 
-          ? Math.round(candidateMessages.reduce((sum, m) => sum + m.durationMs, 0) / candidateMessages.length)
-          : 0,
-        totalWordCount: candidateMessages.reduce((sum, m) => sum + m.content.split(/\s+/).length, 0),
+        averageResponseMs,
+        totalWordCount,
+        totalFillerWords,
+        totalPauses,
+        longestPauseMs,
         clarityScore: feedback.clarityScore,
         structureScore: feedback.structureScore,
         relevanceScore: feedback.relevanceScore,
+        confidenceScore: feedback.confidenceScore,
         overallScore: feedback.overallScore,
       },
     })
@@ -115,50 +162,17 @@ export async function POST(
     })
 
     // Update user stats
-    const today = new Date()
-    today.setHours(0, 0, 0, 0)
-    
-    const dbUser = await prisma.user.findUnique({
-      where: { id: user.id },
-    })
+    await updateUserStats(user.id)
 
-    if (dbUser) {
-      const lastSession = dbUser.lastSessionAt
-      let newStreak = dbUser.currentStreak
-
-      if (lastSession) {
-        const lastSessionDate = new Date(lastSession)
-        lastSessionDate.setHours(0, 0, 0, 0)
-        const yesterday = new Date(today)
-        yesterday.setDate(yesterday.getDate() - 1)
-
-        if (lastSessionDate.getTime() === yesterday.getTime()) {
-          // Consecutive day
-          newStreak = dbUser.currentStreak + 1
-        } else if (lastSessionDate.getTime() < yesterday.getTime()) {
-          // Streak broken
-          newStreak = 1
-        }
-        // Same day - no change
-      } else {
-        // First session
-        newStreak = 1
-      }
-
-      await prisma.user.update({
-        where: { id: user.id },
-        data: {
-          totalSessions: { increment: 1 },
-          lastSessionAt: new Date(),
-          currentStreak: newStreak,
-          longestStreak: Math.max(dbUser.longestStreak, newStreak),
-        },
-      })
-    }
-
-    return NextResponse.json({ 
+    return NextResponse.json({
       session: completedSession,
       feedback,
+      metrics: {
+        totalFillerWords,
+        totalPauses,
+        totalWordCount,
+        averageResponseMs,
+      },
     })
   } catch (error) {
     console.error('Complete session error:', error)
@@ -170,4 +184,51 @@ export async function POST(
       { status: 500 }
     )
   }
+}
+
+/**
+ * Update user streak and session count
+ */
+async function updateUserStats(userId: string) {
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+
+  const dbUser = await prisma.user.findUnique({
+    where: { id: userId },
+  })
+
+  if (!dbUser) return
+
+  const lastSession = dbUser.lastSessionAt
+  let newStreak = dbUser.currentStreak
+
+  if (lastSession) {
+    const lastSessionDate = new Date(lastSession)
+    lastSessionDate.setHours(0, 0, 0, 0)
+
+    const yesterday = new Date(today)
+    yesterday.setDate(yesterday.getDate() - 1)
+
+    if (lastSessionDate.getTime() === yesterday.getTime()) {
+      // Consecutive day - increment streak
+      newStreak = dbUser.currentStreak + 1
+    } else if (lastSessionDate.getTime() < yesterday.getTime()) {
+      // Streak broken - reset to 1
+      newStreak = 1
+    }
+    // Same day - no change to streak
+  } else {
+    // First session ever
+    newStreak = 1
+  }
+
+  await prisma.user.update({
+    where: { id: userId },
+    data: {
+      totalSessions: { increment: 1 },
+      lastSessionAt: new Date(),
+      currentStreak: newStreak,
+      longestStreak: Math.max(dbUser.longestStreak, newStreak),
+    },
+  })
 }

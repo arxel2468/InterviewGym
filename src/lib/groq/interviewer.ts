@@ -187,12 +187,16 @@ export async function generateFeedback(
 ): Promise<FeedbackResult | FeedbackError> {
   const groq = getGroqClient()
 
+  // Build a detailed transcript
+  const transcript = conversationHistory
+    .map((m, i) => `${m.role.toUpperCase()}: ${m.content}`)
+    .join('\n\n')
+
   const candidateResponses = conversationHistory
     .filter((m) => m.role === 'candidate')
     .map((m) => m.content)
-    .join('\n\n')
 
-  if (!candidateResponses.trim()) {
+  if (candidateResponses.length === 0) {
     return {
       success: false,
       error: 'No candidate responses to analyze',
@@ -200,33 +204,64 @@ export async function generateFeedback(
     }
   }
 
-  const prompt = `Analyze this interview candidate's responses and provide structured feedback.
+  const prompt = `You are an expert interview coach analyzing a practice interview session.
 
-CANDIDATE'S RESPONSES:
-${candidateResponses}
+FULL TRANSCRIPT:
+${transcript}
 
-DIFFICULTY LEVEL: ${difficulty}
+INTERVIEW CONTEXT:
+- Difficulty: ${difficulty}
+- Total responses: ${candidateResponses.length}
 
-Provide feedback in this exact JSON format:
+ANALYSIS INSTRUCTIONS:
+1. Evaluate each candidate response for:
+   - Clarity: Was the answer easy to follow?
+   - Structure: Did they use frameworks like STAR (Situation, Task, Action, Result)?
+   - Relevance: Did they actually answer the question asked?
+   - Confidence: Did they sound certain or hedge excessively?
+
+2. Look for specific issues:
+   - Vague statements without examples
+   - Missing outcomes/results
+   - Rambling or unfocused answers
+   - Filler words and hedging language
+   - Not answering the actual question
+
+3. Identify concrete strengths with evidence from their answers.
+
+4. Provide actionable suggestions they can apply immediately.
+
+RESPOND WITH THIS EXACT JSON FORMAT (no markdown, no code blocks):
 {
-  "strengths": ["strength 1", "strength 2", "strength 3"],
-  "improvements": ["area to improve 1", "area to improve 2"],
-  "suggestions": ["specific actionable suggestion 1", "specific actionable suggestion 2"],
+  "strengths": [
+    "Specific strength with example from their answer",
+    "Another specific strength"
+  ],
+  "improvements": [
+    "Specific issue: quote or reference what they said",
+    "Another specific issue with evidence"
+  ],
+  "suggestions": [
+    "Actionable tip: exactly what to do differently",
+    "Another concrete suggestion"
+  ],
   "overallScore": <1-10>,
   "clarityScore": <1-10>,
   "structureScore": <1-10>,
   "relevanceScore": <1-10>,
-  "summary": "2-3 sentence overall assessment"
+  "confidenceScore": <1-10>,
+  "summary": "2-3 sentence personalized assessment referencing their specific answers"
 }
 
-SCORING GUIDE:
-- 1-3: Poor, significant issues
-- 4-5: Below average, needs work
-- 6-7: Average to good
-- 8-9: Very good
-- 10: Exceptional
+SCORING SCALE:
+1-3: Poor - Major issues, answer was confusing or off-topic
+4-5: Below Average - Some relevant points but significant gaps
+6-7: Average - Acceptable answer with room for improvement
+8-9: Strong - Well-structured, specific, answered the question
+10: Exceptional - Memorable answer that would impress any interviewer
 
-Be honest and specific. Generic feedback is useless.`
+BE SPECIFIC. Reference their actual words. Generic feedback is useless.
+For ${difficulty} difficulty, calibrate expectations accordingly.`
 
   const result = await executeWithFallback<FeedbackResult>(
     'chat',
@@ -236,37 +271,51 @@ Be honest and specific. Generic feedback is useless.`
         messages: [
           {
             role: 'system',
-            content: 'You are an expert interview coach. Respond only with valid JSON, no markdown code blocks.',
+            content: 'You are an expert interview coach. Respond only with valid JSON. No markdown formatting.',
           },
           { role: 'user', content: prompt },
         ],
         temperature: 0.3,
-        max_tokens: 1024,
+        max_tokens: 1500,
       })
 
       const responseText = completion.choices[0]?.message?.content || '{}'
 
-      // Extract JSON from response
+      // Extract JSON from response (handle potential markdown wrapping)
+      let jsonString = responseText
       const jsonMatch = responseText.match(/\{[\s\S]*\}/)
-      if (!jsonMatch) {
-        throw new Error('No valid JSON in response')
+      if (jsonMatch) {
+        jsonString = jsonMatch[0]
       }
 
-      const parsed = JSON.parse(jsonMatch[0])
+      const parsed = JSON.parse(jsonString)
 
       // Validate required fields
       if (
         !Array.isArray(parsed.strengths) ||
         !Array.isArray(parsed.improvements) ||
-        typeof parsed.overallScore !== 'number'
+        !Array.isArray(parsed.suggestions) ||
+        typeof parsed.overallScore !== 'number' ||
+        typeof parsed.summary !== 'string'
       ) {
         throw new Error('Invalid feedback structure')
       }
 
+      // Ensure scores are within range
+      const clampScore = (s: number) => Math.max(1, Math.min(10, Math.round(s)))
+
       return {
-        ...parsed,
+        strengths: parsed.strengths.slice(0, 5),
+        improvements: parsed.improvements.slice(0, 5),
+        suggestions: parsed.suggestions.slice(0, 5),
+        overallScore: clampScore(parsed.overallScore),
+        clarityScore: clampScore(parsed.clarityScore || parsed.overallScore),
+        structureScore: clampScore(parsed.structureScore || parsed.overallScore),
+        relevanceScore: clampScore(parsed.relevanceScore || parsed.overallScore),
+        confidenceScore: clampScore(parsed.confidenceScore || parsed.overallScore),
+        summary: parsed.summary,
         model: modelId,
-        wasDegraded: false, // Will be overwritten
+        wasDegraded: false,
       }
     },
     onRetry

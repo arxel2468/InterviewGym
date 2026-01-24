@@ -3,7 +3,7 @@ import { redirect } from 'next/navigation'
 import { prisma } from '@/lib/prisma'
 
 export async function getUser() {
-  const supabase = createClient()
+  const supabase = await createClient() // ADD await
   const { data: { user } } = await supabase.auth.getUser()
   return user
 }

@@ -6,12 +6,39 @@ import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import { Plus, TrendingUp, Calendar, Clock, ArrowRight } from 'lucide-react'
 
+// Threshold: sessions older than 2 hours are considered abandoned
+const ABANDONMENT_THRESHOLD_MS = 2 * 60 * 60 * 1000
+
 export default async function DashboardPage() {
   const user = await requireAuth()
 
   if (!user.onboardingComplete) {
     redirect('/onboarding')
   }
+
+  // Clean up abandoned sessions
+  const cutoffTime = new Date(Date.now() - ABANDONMENT_THRESHOLD_MS)
+  await prisma.session.updateMany({
+    where: {
+      userId: user.id,
+      status: 'in_progress',
+      startedAt: {
+        lt: cutoffTime,
+      },
+    },
+    data: {
+      status: 'abandoned',
+    },
+  })
+
+  // Check for any active session (started within threshold)
+  const activeSession = await prisma.session.findFirst({
+    where: {
+      userId: user.id,
+      status: 'in_progress',
+    },
+    orderBy: { startedAt: 'desc' },
+  })
 
   const recentSessions = await prisma.session.findMany({
     where: { userId: user.id, status: 'completed' },
@@ -22,6 +49,28 @@ export default async function DashboardPage() {
 
   return (
     <div className="space-y-8">
+      {/* Active Session Banner */}
+      {activeSession && (
+        <Card className="bg-violet-500/10 border-violet-500/30">
+          <CardContent className="py-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-white font-medium">You have an interview in progress</p>
+                <p className="text-sm text-zinc-400">
+                  Started {formatTimeAgo(activeSession.startedAt)}
+                </p>
+              </div>
+              <Link href={`/dashboard/session/${activeSession.id}`}>
+                <Button className="bg-gradient-primary hover:opacity-90">
+                  Resume Session
+                  <ArrowRight className="w-4 h-4 ml-2" />
+                </Button>
+              </Link>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Header */}
       <div className="flex items-start justify-between">
         <div>
@@ -40,6 +89,7 @@ export default async function DashboardPage() {
         </Link>
       </div>
 
+      {/* Rest of the component stays the same... */}
       {/* Stats Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <Card className="bg-zinc-900/50 border-zinc-800">
@@ -175,4 +225,14 @@ export default async function DashboardPage() {
       </Card>
     </div>
   )
+}
+
+// Helper function for time ago
+function formatTimeAgo(date: Date): string {
+  const seconds = Math.floor((Date.now() - date.getTime()) / 1000)
+
+  if (seconds < 60) return 'just now'
+  if (seconds < 3600) return `${Math.floor(seconds / 60)} minutes ago`
+  if (seconds < 86400) return `${Math.floor(seconds / 3600)} hours ago`
+  return `${Math.floor(seconds / 86400)} days ago`
 }

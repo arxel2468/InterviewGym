@@ -19,7 +19,7 @@ const requestSchema = z.object({
 export async function POST(request: Request) {
   try {
     // Verify auth
-    const supabase = createClient()
+    const supabase = await createClient()
     const { data: { user } } = await supabase.auth.getUser()
     
     if (!user) {

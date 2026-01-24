@@ -60,6 +60,7 @@ const ATMOSPHERIC_MESSAGES = [
   'The interviewer nods thoughtfully...',
 ]
 
+
 export function InterviewSession({ 
   sessionId, 
   difficulty, 
@@ -77,7 +78,8 @@ export function InterviewSession({
   // Refs
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const recordingStartTime = useRef<number>(0)
-  
+  const hasInitialized = useRef(false)
+
   // Audio recorder
   const { 
     isRecording, 
@@ -94,8 +96,31 @@ export function InterviewSession({
 
   // Start interview on mount
   useEffect(() => {
+    // Prevent double initialization in React Strict Mode
+    if (hasInitialized.current) return
+    hasInitialized.current = true
+
     startInterview()
+
+    // Cleanup function
+    return () => {
+      stopSpeaking() // Stop any TTS on unmount
+    }
   }, [])
+
+  useEffect(() => {
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (state !== 'ended' && state !== 'error' && messages.length > 0) {
+        e.preventDefault()
+        e.returnValue = 'You have an interview in progress. Are you sure you want to leave?'
+        return e.returnValue
+      }
+    }
+
+    window.addEventListener('beforeunload', handleBeforeUnload)
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload)
+  }, [state, messages.length])
+
 
   // Get random atmospheric message
   const getAtmosphericMessage = () => {

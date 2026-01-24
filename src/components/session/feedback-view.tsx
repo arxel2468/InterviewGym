@@ -6,6 +6,7 @@ import { Progress } from '@/components/ui/progress'
 import Link from 'next/link'
 import { 
   ArrowLeft, 
+  BarChart3,
   Plus, 
   Clock, 
   MessageSquare, 
@@ -33,14 +34,19 @@ interface FeedbackViewProps {
     role: string
     content: string
     orderIndex: number
+    fillerWordCount?: number | null
+    wordCount?: number | null
   }[]
   metrics: {
     questionsAnswered: number
     averageResponseMs: number
     totalWordCount: number
+    totalFillerWords?: number
+    totalPauses?: number
     clarityScore: number | null
     structureScore: number | null
     relevanceScore: number | null
+    confidenceScore: number | null
     overallScore: number | null
   } | null
   feedback: {
@@ -93,6 +99,53 @@ function formatDuration(seconds: number): string {
   return `${mins}:${secs.toString().padStart(2, '0')}`
 }
 
+function MetricItem({
+  label,
+  value,
+  description
+}: {
+  label: string
+  value: string | number
+  description: string
+}) {
+  return (
+    <div className="p-3 rounded-lg bg-zinc-800/50">
+      <p className="text-2xl font-semibold text-white">{value}</p>
+      <p className="text-sm text-zinc-400">{label}</p>
+      {description && (
+        <p className="text-xs text-zinc-500 mt-1">{description}</p>
+      )}
+    </div>
+  )
+}
+
+function getFillerWordsAssessment(fillerCount: number, totalWords: number): string {
+  if (totalWords === 0) return ''
+  const ratio = fillerCount / totalWords
+  if (ratio < 0.02) return '✓ Excellent'
+  if (ratio < 0.05) return 'Good'
+  if (ratio < 0.10) return 'Needs work'
+  return 'High - practice reducing'
+}
+
+function getWordCountAssessment(totalWords: number, responses: number): string {
+  if (responses === 0) return ''
+  const avg = totalWords / responses
+  if (avg < 30) return 'Too brief'
+  if (avg < 50) return 'Could elaborate more'
+  if (avg <= 150) return '✓ Good length'
+  return 'Consider being more concise'
+}
+
+function getResponseTimeAssessment(avgMs: number): string {
+  const seconds = avgMs / 1000
+  if (seconds < 10) return 'Very quick'
+  if (seconds < 30) return 'Good pace'
+  if (seconds < 60) return '✓ Thoughtful'
+  if (seconds < 120) return 'Taking time'
+  return 'Quite long'
+}
+
 export function FeedbackView({ session, messages, metrics, feedback }: FeedbackViewProps) {
   const [showTranscript, setShowTranscript] = useState(false)
   
@@ -104,6 +157,7 @@ export function FeedbackView({ session, messages, metrics, feedback }: FeedbackV
   const clarityScore = metrics?.clarityScore || 5
   const structureScore = metrics?.structureScore || 5
   const relevanceScore = metrics?.relevanceScore || 5
+  const confidenceScore = metrics?.confidenceScore || 5
 
   // Determine score color
   const getScoreColor = (score: number) => {
@@ -175,10 +229,11 @@ export function FeedbackView({ session, messages, metrics, feedback }: FeedbackV
             </div>
 
             {/* Sub Scores */}
-            <div className="flex gap-6">
+            <div className="flex gap-6 flex-wrap justify-center md:justify-start">
               <ScoreRing score={clarityScore} label="Clarity" color={getScoreColor(clarityScore)} />
               <ScoreRing score={structureScore} label="Structure" color={getScoreColor(structureScore)} />
               <ScoreRing score={relevanceScore} label="Relevance" color={getScoreColor(relevanceScore)} />
+              <ScoreRing score={confidenceScore} label="Confidence" color={getScoreColor(confidenceScore)} />
             </div>
 
             {/* Quick Stats */}
@@ -239,6 +294,42 @@ export function FeedbackView({ session, messages, metrics, feedback }: FeedbackV
           <p className="text-zinc-300 leading-relaxed">{feedback.summary}</p>
         </CardContent>
       </Card>
+
+      {/* Speaking Metrics */}
+      {metrics && (metrics.totalFillerWords !== undefined || metrics.totalPauses !== undefined) && (
+        <Card className="bg-zinc-900/50 border-zinc-800">
+          <CardHeader>
+            <CardTitle className="text-lg text-white flex items-center gap-2">
+              <BarChart3 className="w-5 h-5 text-zinc-400" />
+              Speaking Analysis
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              <MetricItem
+                label="Filler Words"
+                value={metrics.totalFillerWords ?? 0}
+                description={getFillerWordsAssessment(metrics.totalFillerWords ?? 0, metrics.totalWordCount)}
+              />
+              <MetricItem
+                label="Words per Response"
+                value={Math.round(metrics.totalWordCount / Math.max(metrics.questionsAnswered, 1))}
+                description={getWordCountAssessment(metrics.totalWordCount, metrics.questionsAnswered)}
+              />
+              <MetricItem
+                label="Avg Response Time"
+                value={`${Math.round((metrics.averageResponseMs || 0) / 1000)}s`}
+                description={getResponseTimeAssessment(metrics.averageResponseMs || 0)}
+              />
+              <MetricItem
+                label="Total Words"
+                value={metrics.totalWordCount}
+                description=""
+              />
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Strengths & Improvements */}
       <div className="grid md:grid-cols-2 gap-4">
