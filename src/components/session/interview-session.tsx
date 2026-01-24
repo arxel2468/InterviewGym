@@ -131,13 +131,13 @@ export function InterviewSession({
   const startInterview = async () => {
     setState('initializing')
     setAtmosphericMessage('The interviewer is joining the call...')
-    
+
     try {
-      // Get initial interviewer response
       const response = await fetch('/api/interview/respond', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          sessionId, // ADD THIS
           difficulty,
           interviewType,
           conversationHistory: [],
@@ -297,17 +297,18 @@ export function InterviewSession({
       setAtmosphericMessage(getAtmosphericMessage())
       
       const interviewResponse = await fetch('/api/interview/respond', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          difficulty,
-          interviewType,
-          conversationHistory: updatedMessages.map(m => ({
-            role: m.role,
-            content: m.content,
-          })),
-        }),
-      })
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            sessionId, // ADD THIS
+            difficulty,
+            interviewType,
+            conversationHistory: updatedMessages.map(m => ({
+              role: m.role,
+              content: m.content,
+            })),
+          }),
+        })
 
       const interviewData = await interviewResponse.json()
 
