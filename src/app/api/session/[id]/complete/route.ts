@@ -47,13 +47,13 @@ export async function POST(
     // Analyze candidate messages
     const candidateMessages = conversationHistory.filter((m) => m.role === 'candidate')
 
-    // Aggregate text metrics
+    // Aggregate metrics
     let totalFillerWords = 0
     let totalPauses = 0
     let totalWordCount = 0
     let longestPauseMs = 0
 
-    const messageAnalyses = candidateMessages.map((msg, index) => {
+    const messageAnalyses = candidateMessages.map((msg) => {
       const analysis = analyzeText(msg.content)
       const pauses = estimatePauses(msg.content)
 
@@ -61,13 +61,12 @@ export async function POST(
       totalPauses += pauses
       totalWordCount += analysis.wordCount
 
-      // Track longest response time as proxy for longest pause
       if (msg.durationMs > longestPauseMs) {
         longestPauseMs = msg.durationMs
       }
 
       return {
-        index,
+        content: msg.content,
         ...analysis,
         pauses,
         durationMs: msg.durationMs,
@@ -77,9 +76,7 @@ export async function POST(
     // Save messages with analysis
     await prisma.message.createMany({
       data: conversationHistory.map((msg, index) => {
-        const analysis = msg.role === 'candidate'
-          ? messageAnalyses.find(a => a.index === candidateMessages.indexOf(msg))
-          : null
+        const analysis = messageAnalyses.find(a => a.content === msg.content)
 
         return {
           sessionId: id,
@@ -87,10 +84,10 @@ export async function POST(
           content: msg.content,
           durationMs: msg.durationMs,
           orderIndex: index,
-          fillerWordCount: analysis?.fillerWordCount ?? null,
-          pauseCount: analysis?.pauses ?? null,
-          wordCount: analysis?.wordCount ?? null,
-          longestPauseMs: null, // Would need audio analysis for accurate value
+          fillerWordCount: msg.role === 'candidate' ? (analysis?.fillerWordCount ?? 0) : null,
+          pauseCount: msg.role === 'candidate' ? (analysis?.pauses ?? 0) : null,
+          wordCount: msg.role === 'candidate' ? (analysis?.wordCount ?? 0) : null,
+          longestPauseMs: null,
         }
       }),
     })
@@ -151,7 +148,7 @@ export async function POST(
       },
     })
 
-    // Update session
+    // Update session status
     const completedSession = await prisma.session.update({
       where: { id },
       data: {
@@ -186,9 +183,6 @@ export async function POST(
   }
 }
 
-/**
- * Update user streak and session count
- */
 async function updateUserStats(userId: string) {
   const today = new Date()
   today.setHours(0, 0, 0, 0)
@@ -210,15 +204,11 @@ async function updateUserStats(userId: string) {
     yesterday.setDate(yesterday.getDate() - 1)
 
     if (lastSessionDate.getTime() === yesterday.getTime()) {
-      // Consecutive day - increment streak
       newStreak = dbUser.currentStreak + 1
     } else if (lastSessionDate.getTime() < yesterday.getTime()) {
-      // Streak broken - reset to 1
       newStreak = 1
     }
-    // Same day - no change to streak
   } else {
-    // First session ever
     newStreak = 1
   }
 
