@@ -18,12 +18,12 @@ export type SynthesisError = {
 export type TTSFallbackLevel = 'primary' | 'secondary' | 'browser' | 'failed'
 
 // Available voices for Orpheus model
-const VOICES = ['tara', 'autumn', 'leah', 'dan', 'josh'] as const
+const VOICES = ['autumn', 'diana', 'hannah', 'austin', 'daniel', 'troy'] as const
 type Voice = typeof VOICES[number]
 
 export async function synthesizeSpeech(
   text: string,
-  voice: Voice = 'tara'
+  voice: Voice = 'diana' // Changed from 'tara' to 'diana'
 ): Promise<SynthesisResult | SynthesisError> {
   // Get best available TTS model
   const model = await getBestModel('tts')

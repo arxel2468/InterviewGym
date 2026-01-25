@@ -1,14 +1,15 @@
 'use client'
 
 import { useState, useRef } from 'react'
+import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { toast } from 'sonner'
-import { 
-  Upload, 
-  FileText, 
-  Trash2, 
-  Loader2, 
+import {
+  Upload,
+  FileText,
+  Trash2,
+  Loader2,
   CheckCircle,
   AlertCircle,
   ClipboardPaste
@@ -26,10 +27,10 @@ interface ResumeUploadProps {
     fileName: string
     parsedData: ParsedResume | null
   } | null
-  onUploadComplete?: () => void
 }
 
-export function ResumeUpload({ currentResume, onUploadComplete }: ResumeUploadProps) {
+export function ResumeUpload({ currentResume }: ResumeUploadProps) {
+  const router = useRouter()
   const [isUploading, setIsUploading] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
   const [showPaste, setShowPaste] = useState(false)
@@ -58,7 +59,7 @@ export function ResumeUpload({ currentResume, onUploadComplete }: ResumeUploadPr
       }
 
       toast.success('Resume analyzed successfully')
-      onUploadComplete?.()
+      router.refresh()
     } catch (error: any) {
       toast.error(error.message || 'Failed to process resume')
     } finally {
@@ -93,7 +94,7 @@ export function ResumeUpload({ currentResume, onUploadComplete }: ResumeUploadPr
       toast.success('Resume analyzed successfully')
       setShowPaste(false)
       setPasteText('')
-      onUploadComplete?.()
+      router.refresh()
     } catch (error: any) {
       toast.error(error.message || 'Failed to parse resume')
     } finally {
@@ -114,7 +115,7 @@ export function ResumeUpload({ currentResume, onUploadComplete }: ResumeUploadPr
       }
 
       toast.success('Resume removed')
-      onUploadComplete?.()
+      router.refresh()
     } catch (error) {
       toast.error('Failed to delete resume')
     } finally {

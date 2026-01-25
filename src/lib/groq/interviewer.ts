@@ -82,6 +82,16 @@ RESPONSE FORMAT:
 
 {RESUME_CONTEXT}`
 
+// Update the resume context injection in generateInterviewerResponse:
+const systemPrompt = SYSTEM_PROMPT
+  .replace('{DIFFICULTY_INSTRUCTIONS}', DIFFICULTY_PROMPTS[context.difficulty])
+  .replace(
+    '{RESUME_CONTEXT}',
+    context.resumeContext
+      ? `\nCANDIDATE BACKGROUND (from their resume):\n${context.resumeContext}\n\nSTRICT RULE: Only reference experiences, projects, and skills that appear in the list above. Do not invent or assume additional projects or experiences.`
+      : ''
+  )
+
 // ============================================
 // GENERATE RESPONSE
 // ============================================
@@ -97,7 +107,7 @@ export async function generateInterviewerResponse(
     .replace(
       '{RESUME_CONTEXT}',
       context.resumeContext
-        ? `\nCANDIDATE BACKGROUND:\n${context.resumeContext}\nReference their specific experiences when relevant.`
+        ? `\nCANDIDATE BACKGROUND (from their resume):\n${context.resumeContext}\n\nSTRICT RULE: Only reference experiences, projects, and skills that appear in the list above. Do not invent or assume additional projects or experiences.`
         : ''
     )
 

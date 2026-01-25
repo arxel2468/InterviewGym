@@ -4,7 +4,6 @@ import { executeWithFallback } from './fallback'
 export type ParsedResume = {
   name?: string
   email?: string
-  phone?: string
   summary?: string
   skills: string[]
   experience: {
@@ -37,43 +36,52 @@ export async function parseResume(rawText: string): Promise<ParsedResume> {
 
   const groq = getGroqClient()
 
-  const prompt = `Extract structured information from this resume text.
+  const prompt = `Extract ONLY information that is EXPLICITLY stated in this resume text. Do NOT invent, assume, or hallucinate any information.
 
 RESUME TEXT:
-${rawText.slice(0, 8000)}
+---
+${rawText.slice(0, 6000)}
+---
 
-Return ONLY valid JSON with this structure:
+STRICT RULES:
+1. Only extract information that appears word-for-word or can be directly inferred from the text
+2. If a section is not present, return an empty array
+3. Do not guess project names, company names, or skills
+4. If unsure about something, omit it entirely
+5. Count the actual number of projects/jobs mentioned - do not invent more
+
+Return ONLY valid JSON:
 {
-  "name": "Full Name",
-  "email": "email@example.com",
-  "phone": "phone number",
-  "summary": "Brief professional summary if present",
-  "skills": ["skill1", "skill2"],
+  "name": "Full name if clearly stated, otherwise null",
+  "email": "Email if present, otherwise null",
+  "summary": "Professional summary if explicitly written, otherwise null",
+  "skills": ["Only skills explicitly listed"],
   "experience": [
     {
-      "title": "Job Title",
-      "company": "Company Name",
-      "duration": "Date range",
-      "highlights": ["Achievement 1", "Achievement 2"]
+      "title": "Exact job title from resume",
+      "company": "Exact company name from resume",
+      "duration": "Date range as written",
+      "highlights": ["Actual bullet points from resume"]
     }
   ],
   "projects": [
     {
-      "name": "Project Name",
-      "description": "What it does",
-      "technologies": ["tech1", "tech2"]
+      "name": "Exact project name from resume",
+      "description": "Description as written in resume",
+      "technologies": ["Only tech explicitly mentioned for this project"]
     }
   ],
   "education": [
     {
-      "degree": "Degree Name",
-      "institution": "School Name",
-      "year": "Graduation year"
+      "degree": "Exact degree name",
+      "institution": "Exact school name",
+      "year": "Year as written"
     }
   ]
 }
 
-Extract real information only. If something isn't present, use empty arrays or omit the field.`
+If the resume only has 2 projects, return exactly 2 projects. Do not invent a third.
+Respond with ONLY the JSON, no explanation.`
 
   const result = await executeWithFallback<ParsedResume>(
     'chat',
@@ -83,11 +91,11 @@ Extract real information only. If something isn't present, use empty arrays or o
         messages: [
           {
             role: 'system',
-            content: 'You extract structured data from resumes. Respond only with valid JSON.',
+            content: 'You extract structured data from resumes. You NEVER invent or hallucinate information. If something is not in the text, you do not include it. Respond only with valid JSON.',
           },
           { role: 'user', content: prompt },
         ],
-        temperature: 0.1,
+        temperature: 0, // Zero temperature for deterministic extraction
         max_tokens: 2000,
       })
 
@@ -101,10 +109,9 @@ Extract real information only. If something isn't present, use empty arrays or o
       const parsed = JSON.parse(jsonMatch[0])
 
       return {
-        name: parsed.name,
-        email: parsed.email,
-        phone: parsed.phone,
-        summary: parsed.summary,
+        name: parsed.name || undefined,
+        email: parsed.email || undefined,
+        summary: parsed.summary || undefined,
         skills: Array.isArray(parsed.skills) ? parsed.skills : [],
         experience: Array.isArray(parsed.experience) ? parsed.experience : [],
         projects: Array.isArray(parsed.projects) ? parsed.projects : [],
@@ -139,16 +146,16 @@ export function formatResumeForContext(parsed: ParsedResume): string {
 
   if (parsed.experience.length > 0) {
     const exp = parsed.experience.map(e => 
-      `- ${e.title} at ${e.company} (${e.duration}): ${e.highlights.slice(0, 2).join('; ')}`
+      `- ${e.title} at ${e.company} (${e.duration})`
     ).join('\n')
     sections.push(`EXPERIENCE:\n${exp}`)
   }
 
   if (parsed.projects.length > 0) {
-    const proj = parsed.projects.map(p =>
-      `- ${p.name}: ${p.description} [${p.technologies.join(', ')}]`
+    const proj = parsed.projects.map((p, i) =>
+      `- Project ${i + 1}: ${p.name} - ${p.description} [${p.technologies.join(', ')}]`
     ).join('\n')
-    sections.push(`PROJECTS:\n${proj}`)
+    sections.push(`PROJECTS (${parsed.projects.length} total):\n${proj}`)
   }
 
   if (parsed.education.length > 0) {
@@ -157,6 +164,9 @@ export function formatResumeForContext(parsed: ParsedResume): string {
     ).join('\n')
     sections.push(`EDUCATION:\n${edu}`)
   }
+
+  // Add explicit instruction to prevent hallucination
+  sections.push(`\nIMPORTANT: Only ask about the ${parsed.projects.length} projects listed above. Do not reference projects that are not in this list.`)
 
   return sections.join('\n\n')
 }

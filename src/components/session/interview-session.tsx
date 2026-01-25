@@ -372,9 +372,16 @@ export function InterviewSession({
   }
 
   // Handle manual end
-  const handleEndInterview = () => {
+  const handleEndInterview = async () => {
+    // If not enough conversation, mark as abandoned and go back
     if (messages.length < 2) {
-      // Not enough conversation, just go back
+      try {
+        await fetch(`/api/session/${sessionId}/abandon`, {
+          method: 'POST',
+        })
+      } catch (e) {
+        // Ignore errors
+      }
       router.push('/dashboard')
       return
     }
