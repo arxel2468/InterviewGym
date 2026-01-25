@@ -1,5 +1,12 @@
 import { getGroqClient } from './client'
 import { executeWithFallback, getDegradedMessage } from './fallback'
+import { getPersona, InterviewerPersona } from '@/lib/prompts/interviewer-personas'
+import {
+  selectQuestionsForSession,
+  getRandomFollowUp,
+  Question,
+  BEHAVIORAL_QUESTIONS
+} from '@/lib/questions/behavioral'
 
 export type Difficulty = 'warmup' | 'standard' | 'intense'
 
@@ -14,6 +21,8 @@ export type InterviewContext = {
   targetRole?: string
   resumeContext?: string
   conversationHistory: ConversationMessage[]
+  questionPlan?: string[] // IDs of planned questions
+  currentQuestionIndex?: number
 }
 
 export type InterviewerResponse = {
@@ -21,6 +30,8 @@ export type InterviewerResponse = {
   model: string
   wasDegraded: boolean
   degradedMessage?: string
+  nextQuestionId?: string
+  isClosing?: boolean
 }
 
 export type InterviewerError = {
@@ -30,70 +41,108 @@ export type InterviewerError = {
 }
 
 // ============================================
-// PROMPTS
+// SYSTEM PROMPT BUILDER
 // ============================================
 
-const DIFFICULTY_PROMPTS: Record<Difficulty, string> = {
-  warmup: `You are a friendly, encouraging interviewer. 
-- Give the candidate time to think
-- Offer gentle prompts if they seem stuck
-- Focus on making them comfortable
-- Acknowledge good points they make
-- Keep follow-up questions simple`,
+function buildSystemPrompt(
+  persona: InterviewerPersona,
+  resumeContext?: string,
+  currentQuestion?: Question,
+  exchangeCount: number = 0,
+  totalPlannedQuestions: number = 5
+): string {
+  const resumeSection = resumeContext
+    ? `\n\nCANDIDATE'S BACKGROUND (from their resume):\n${resumeContext}\n\nYou may reference this background, but do NOT fabricate details not listed here.`
+    : ''
 
-  standard: `You are a professional, neutral interviewer.
-- Ask clear, direct questions
-- Probe for depth when answers are surface-level
-- Maintain a business-like tone
-- Don't offer hints or help
-- Follow up on vague statements`,
+  const questionGuidance = currentQuestion
+    ? `\n\nCURRENT QUESTION CONTEXT:
+Category: ${currentQuestion.category}
+Main Question: "${currentQuestion.question}"
+What good answers include: ${currentQuestion.lookingFor.join(', ')}
+Possible follow-ups: ${currentQuestion.followUps.join(' | ')}`
+    : ''
 
-  intense: `You are a demanding, rigorous interviewer.
-- Challenge weak answers immediately
-- Ask "why" repeatedly to test depth
-- Show subtle skepticism
-- Create pressure through brief responses
-- Don't accept generic answers`,
+  const progressNote = `\n\nINTERVIEW PROGRESS: Exchange ${exchangeCount} of approximately ${totalPlannedQuestions * 2}. ${
+    exchangeCount >= totalPlannedQuestions * 2 - 2
+      ? 'This is near the end - wrap up naturally soon.'
+      : ''
+  }`
+
+  return `You are ${persona.name}, ${persona.title}, conducting a behavioral interview.
+
+YOUR PERSONALITY AND STYLE:
+${persona.style}
+
+YOUR BEHAVIORS:
+${persona.behaviors.map(b => `- ${b}`).join('\n')}
+
+RESPONSE PATTERNS (use these for brief acknowledgments):
+${persona.responsePatterns.join(', ')}
+
+TRANSITION PHRASES (use when moving to new topics):
+${persona.transitions.join(', ')}
+
+CRITICAL RULES:
+1. You are conducting an INTERVIEW, not having a conversation
+2. Ask ONE question or follow-up at a time
+3. Keep your responses SHORT - typically 1-3 sentences
+4. Do NOT explain why you're asking something
+5. Do NOT give feedback or coach during the interview
+6. Do NOT say "great question" or similar - YOU ask the questions
+7. Stay in character as ${persona.name} throughout
+8. When candidate gives weak/vague answer, probe deeper based on your style
+9. After 1-2 follow-ups on a topic, move to the next planned question
+10. No asterisks, no stage directions, no markdown
+${resumeSection}
+${questionGuidance}
+${progressNote}`
 }
 
-const SYSTEM_PROMPT = `You are an AI interviewer conducting a behavioral interview for a tech role.
+// ============================================
+// INTERVIEW STATE MANAGEMENT
+// ============================================
 
-CORE BEHAVIORS:
-1. Ask ONE question at a time
-2. Listen to the response and ask relevant follow-ups
-3. Never break character as an interviewer
-4. Keep responses concise (2-3 sentences max for follow-ups)
-5. After 5-7 exchanges, naturally conclude the interview
+function determineNextAction(
+  conversationHistory: ConversationMessage[],
+  questionPlan: string[],
+  currentQuestionIndex: number
+): { action: 'follow_up' | 'next_question' | 'close'; questionId?: string } {
+  const candidateResponses = conversationHistory.filter(m => m.role === 'candidate')
+  const exchangeCount = candidateResponses.length
 
-QUESTION TYPES TO COVER:
-- "Tell me about yourself" (opening)
-- Behavioral: "Tell me about a time when..."
-- Problem-solving: "How would you approach..."
-- Self-awareness: "What's your biggest weakness..."
-- Motivation: "Why are you interested in..."
+  // How many exchanges on current topic?
+  // Find last interviewer message that was a new question (not follow-up)
+  const recentExchanges = conversationHistory.slice(-4) // Last 2 exchanges
+  const followUpCount = recentExchanges.filter(m => m.role === 'candidate').length
 
-RESPONSE FORMAT:
-- Speak naturally as an interviewer would
-- No asterisks, markdown, or stage directions
-- No excessive praise like "Great answer!"
-- Brief acknowledgments are okay: "I see." or "Interesting."
+  // Time to close?
+  if (currentQuestionIndex >= questionPlan.length - 1 && followUpCount >= 1) {
+    return { action: 'close' }
+  }
 
-{DIFFICULTY_INSTRUCTIONS}
+  // Should we follow up or move on?
+  // Follow up if: less than 2 follow-ups on this topic AND answer was short/vague
+  const lastCandidateResponse = candidateResponses[candidateResponses.length - 1]?.content || ''
+  const wordCount = lastCandidateResponse.split(/\s+/).length
+  const isShortAnswer = wordCount < 40
+  const shouldFollowUp = followUpCount < 2 && isShortAnswer
 
-{RESUME_CONTEXT}`
+  if (shouldFollowUp) {
+    return { action: 'follow_up', questionId: questionPlan[currentQuestionIndex] }
+  }
 
-// Update the resume context injection in generateInterviewerResponse:
-const systemPrompt = SYSTEM_PROMPT
-  .replace('{DIFFICULTY_INSTRUCTIONS}', DIFFICULTY_PROMPTS[context.difficulty])
-  .replace(
-    '{RESUME_CONTEXT}',
-    context.resumeContext
-      ? `\nCANDIDATE BACKGROUND (from their resume):\n${context.resumeContext}\n\nSTRICT RULE: Only reference experiences, projects, and skills that appear in the list above. Do not invent or assume additional projects or experiences.`
-      : ''
-  )
+  // Move to next question
+  const nextIndex = currentQuestionIndex + 1
+  if (nextIndex < questionPlan.length) {
+    return { action: 'next_question', questionId: questionPlan[nextIndex] }
+  }
+
+  return { action: 'close' }
+}
 
 // ============================================
-// GENERATE RESPONSE
+// MAIN RESPONSE GENERATOR
 // ============================================
 
 export async function generateInterviewerResponse(
@@ -101,21 +150,65 @@ export async function generateInterviewerResponse(
   onRetry?: (message: string, attempt: number) => void
 ): Promise<InterviewerResponse | InterviewerError> {
   const groq = getGroqClient()
+  const persona = getPersona(context.difficulty)
 
-  const systemPrompt = SYSTEM_PROMPT
-    .replace('{DIFFICULTY_INSTRUCTIONS}', DIFFICULTY_PROMPTS[context.difficulty])
-    .replace(
-      '{RESUME_CONTEXT}',
-      context.resumeContext
-        ? `\nCANDIDATE BACKGROUND (from their resume):\n${context.resumeContext}\n\nSTRICT RULE: Only reference experiences, projects, and skills that appear in the list above. Do not invent or assume additional projects or experiences.`
-        : ''
-    )
+  // Initialize question plan if this is the start
+  let questionPlan = context.questionPlan || []
+  let currentQuestionIndex = context.currentQuestionIndex || 0
+
+  if (questionPlan.length === 0) {
+    const questions = selectQuestionsForSession(5)
+    questionPlan = questions.map(q => q.id)
+  }
+
+  const exchangeCount = context.conversationHistory.filter(m => m.role === 'candidate').length
+  const currentQuestion = BEHAVIORAL_QUESTIONS.find(q => q.id === questionPlan[currentQuestionIndex])
+
+  // Determine what to do next
+  const nextAction = context.conversationHistory.length === 0
+    ? { action: 'next_question' as const, questionId: questionPlan[0] }
+    : determineNextAction(context.conversationHistory, questionPlan, currentQuestionIndex)
+
+  // Build the prompt
+  const systemPrompt = buildSystemPrompt(
+    persona,
+    context.resumeContext,
+    currentQuestion,
+    exchangeCount,
+    questionPlan.length
+  )
+
+  // Build instruction for this specific response
+  let instruction: string
+
+  if (context.conversationHistory.length === 0) {
+    // Opening
+    instruction = `Start the interview. Briefly introduce yourself (name and role only, one sentence), then ask your first question:
+"${currentQuestion?.question || 'Tell me about yourself.'}"
+
+Keep the intro SHORT - no more than 2 sentences total.`
+  } else if (nextAction.action === 'close') {
+    instruction = `The interview is wrapping up. Thank the candidate briefly and ask if they have any questions for you, or if there's anything else they'd like to share. Be natural and brief.`
+  } else if (nextAction.action === 'follow_up') {
+    const followUp = currentQuestion ? getRandomFollowUp(currentQuestion) : null
+    instruction = `The candidate's answer was brief or vague. Ask a follow-up to get more depth.
+${followUp ? `Consider asking something like: "${followUp}"` : 'Probe deeper on what they just said.'}
+Remember your style: ${persona.style}
+Keep it to ONE follow-up question.`
+  } else {
+    // Next question
+    const nextQuestion = BEHAVIORAL_QUESTIONS.find(q => q.id === nextAction.questionId)
+    instruction = `Time to move to a new topic. Use a brief transition, then ask:
+"${nextQuestion?.question || 'Tell me about another experience.'}"
+
+Keep the transition SHORT - just 1-2 words, then the question.`
+  }
 
   const messages: { role: 'system' | 'user' | 'assistant'; content: string }[] = [
     { role: 'system', content: systemPrompt },
   ]
 
-  // Convert conversation history to LLM format
+  // Add conversation history
   for (const msg of context.conversationHistory) {
     messages.push({
       role: msg.role === 'interviewer' ? 'assistant' : 'user',
@@ -123,13 +216,11 @@ export async function generateInterviewerResponse(
     })
   }
 
-  // If this is the start, generate opening
-  if (context.conversationHistory.length === 0) {
-    messages.push({
-      role: 'user',
-      content: 'The interview is starting. Please introduce yourself briefly and ask your first question.',
-    })
-  }
+  // Add instruction
+  messages.push({
+    role: 'user',
+    content: `[INSTRUCTION FOR YOUR NEXT RESPONSE]\n${instruction}`,
+  })
 
   const result = await executeWithFallback<string>(
     'chat',
@@ -138,7 +229,7 @@ export async function generateInterviewerResponse(
         model: modelId,
         messages: messages,
         temperature: 0.7,
-        max_tokens: 256,
+        max_tokens: 200, // Keep responses short
       })
 
       const response = completion.choices[0]?.message?.content
@@ -146,7 +237,7 @@ export async function generateInterviewerResponse(
         throw new Error('Empty response from model')
       }
 
-      return response
+      return response.trim()
     },
     onRetry
   )
@@ -159,16 +250,25 @@ export async function generateInterviewerResponse(
     }
   }
 
+  // Clean up response
+  let cleanResponse = result.data
+    .replace(/\[.*?\]/g, '') // Remove bracketed instructions
+    .replace(/\*\*/g, '') // Remove markdown bold
+    .replace(/\*/g, '') // Remove markdown italic
+    .trim()
+
   return {
-    response: result.data,
+    response: cleanResponse,
     model: result.model,
     wasDegraded: result.wasDegraded,
     degradedMessage: result.wasDegraded ? getDegradedMessage('chat') : undefined,
+    nextQuestionId: nextAction.questionId,
+    isClosing: nextAction.action === 'close',
   }
 }
 
 // ============================================
-// GENERATE FEEDBACK
+// FEEDBACK GENERATOR (keep existing but improve)
 // ============================================
 
 export type FeedbackResult = {
@@ -179,6 +279,7 @@ export type FeedbackResult = {
   clarityScore: number
   structureScore: number
   relevanceScore: number
+  confidenceScore: number
   summary: string
   model: string
   wasDegraded: boolean
@@ -197,81 +298,66 @@ export async function generateFeedback(
 ): Promise<FeedbackResult | FeedbackError> {
   const groq = getGroqClient()
 
-  // Build a detailed transcript
   const transcript = conversationHistory
-    .map((m, i) => `${m.role.toUpperCase()}: ${m.content}`)
+    .map((m) => `${m.role.toUpperCase()}: ${m.content}`)
     .join('\n\n')
 
-  const candidateResponses = conversationHistory
-    .filter((m) => m.role === 'candidate')
-    .map((m) => m.content)
+  const candidateResponses = conversationHistory.filter((m) => m.role === 'candidate')
 
   if (candidateResponses.length === 0) {
     return {
       success: false,
       error: 'No candidate responses to analyze',
-      friendlyMessage: "We couldn't find any responses to analyze. Did you complete the interview?",
+      friendlyMessage: "We couldn't find any responses to analyze.",
     }
   }
 
-  const prompt = `You are an expert interview coach analyzing a practice interview session.
+  const prompt = `You are an expert interview coach analyzing a behavioral interview practice session.
 
 FULL TRANSCRIPT:
 ${transcript}
 
-INTERVIEW CONTEXT:
-- Difficulty: ${difficulty}
-- Total responses: ${candidateResponses.length}
+INTERVIEW DETAILS:
+- Difficulty level: ${difficulty}
+- Total candidate responses: ${candidateResponses.length}
 
-ANALYSIS INSTRUCTIONS:
-1. Evaluate each candidate response for:
-   - Clarity: Was the answer easy to follow?
-   - Structure: Did they use frameworks like STAR (Situation, Task, Action, Result)?
-   - Relevance: Did they actually answer the question asked?
-   - Confidence: Did they sound certain or hedge excessively?
+ANALYZE THE CANDIDATE'S PERFORMANCE:
 
-2. Look for specific issues:
-   - Vague statements without examples
-   - Missing outcomes/results
-   - Rambling or unfocused answers
-   - Filler words and hedging language
-   - Not answering the actual question
+1. STRUCTURE: Did they use STAR format (Situation, Task, Action, Result)?
+2. SPECIFICITY: Did they give concrete examples with details?
+3. METRICS: Did they quantify their impact when possible?
+4. RELEVANCE: Did they actually answer the questions asked?
+5. CONFIDENCE: Did they speak with certainty or hedge excessively?
+6. CLARITY: Were their answers easy to follow?
 
-3. Identify concrete strengths with evidence from their answers.
-
-4. Provide actionable suggestions they can apply immediately.
-
-RESPOND WITH THIS EXACT JSON FORMAT (no markdown, no code blocks):
+PROVIDE FEEDBACK IN THIS EXACT JSON FORMAT:
 {
   "strengths": [
-    "Specific strength with example from their answer",
-    "Another specific strength"
+    "Specific strength with quote from their answer as evidence"
   ],
   "improvements": [
-    "Specific issue: quote or reference what they said",
-    "Another specific issue with evidence"
+    "Specific weakness with quote showing the problem"
   ],
   "suggestions": [
-    "Actionable tip: exactly what to do differently",
-    "Another concrete suggestion"
+    "Concrete, actionable tip they can apply in their next interview"
   ],
   "overallScore": <1-10>,
   "clarityScore": <1-10>,
   "structureScore": <1-10>,
   "relevanceScore": <1-10>,
   "confidenceScore": <1-10>,
-  "summary": "2-3 sentence personalized assessment referencing their specific answers"
+  "summary": "2-3 sentence personalized summary referencing their specific answers"
 }
 
-SCORING SCALE:
-1-3: Poor - Major issues, answer was confusing or off-topic
-4-5: Below Average - Some relevant points but significant gaps
-6-7: Average - Acceptable answer with room for improvement
-8-9: Strong - Well-structured, specific, answered the question
-10: Exceptional - Memorable answer that would impress any interviewer
+SCORING GUIDE (calibrated to ${difficulty} difficulty):
+- 1-3: Poor - major issues, would not advance
+- 4-5: Below average - significant gaps
+- 6-7: Average - acceptable but room to improve
+- 8-9: Strong - would likely advance
+- 10: Exceptional - top 5% of candidates
 
-BE SPECIFIC. Reference their actual words. Generic feedback is useless.
-For ${difficulty} difficulty, calibrate expectations accordingly.`
+BE SPECIFIC. Quote their actual words. Generic feedback is worthless.
+Return ONLY valid JSON, no markdown.`
 
   const result = await executeWithFallback<FeedbackResult>(
     'chat',
@@ -281,7 +367,7 @@ For ${difficulty} difficulty, calibrate expectations accordingly.`
         messages: [
           {
             role: 'system',
-            content: 'You are an expert interview coach. Respond only with valid JSON. No markdown formatting.',
+            content: 'You are an interview coach. Respond only with valid JSON.',
           },
           { role: 'user', content: prompt },
         ],
@@ -291,39 +377,22 @@ For ${difficulty} difficulty, calibrate expectations accordingly.`
 
       const responseText = completion.choices[0]?.message?.content || '{}'
 
-      // Extract JSON from response (handle potential markdown wrapping)
-      let jsonString = responseText
       const jsonMatch = responseText.match(/\{[\s\S]*\}/)
-      if (jsonMatch) {
-        jsonString = jsonMatch[0]
-      }
+      if (!jsonMatch) throw new Error('No JSON found')
 
-      const parsed = JSON.parse(jsonString)
-
-      // Validate required fields
-      if (
-        !Array.isArray(parsed.strengths) ||
-        !Array.isArray(parsed.improvements) ||
-        !Array.isArray(parsed.suggestions) ||
-        typeof parsed.overallScore !== 'number' ||
-        typeof parsed.summary !== 'string'
-      ) {
-        throw new Error('Invalid feedback structure')
-      }
-
-      // Ensure scores are within range
-      const clampScore = (s: number) => Math.max(1, Math.min(10, Math.round(s)))
+      const parsed = JSON.parse(jsonMatch[0])
+      const clamp = (n: number) => Math.max(1, Math.min(10, Math.round(n)))
 
       return {
-        strengths: parsed.strengths.slice(0, 5),
-        improvements: parsed.improvements.slice(0, 5),
-        suggestions: parsed.suggestions.slice(0, 5),
-        overallScore: clampScore(parsed.overallScore),
-        clarityScore: clampScore(parsed.clarityScore || parsed.overallScore),
-        structureScore: clampScore(parsed.structureScore || parsed.overallScore),
-        relevanceScore: clampScore(parsed.relevanceScore || parsed.overallScore),
-        confidenceScore: clampScore(parsed.confidenceScore || parsed.overallScore),
-        summary: parsed.summary,
+        strengths: (parsed.strengths || []).slice(0, 4),
+        improvements: (parsed.improvements || []).slice(0, 4),
+        suggestions: (parsed.suggestions || []).slice(0, 4),
+        overallScore: clamp(parsed.overallScore || 5),
+        clarityScore: clamp(parsed.clarityScore || 5),
+        structureScore: clamp(parsed.structureScore || 5),
+        relevanceScore: clamp(parsed.relevanceScore || 5),
+        confidenceScore: clamp(parsed.confidenceScore || 5),
+        summary: parsed.summary || 'Feedback generation incomplete.',
         model: modelId,
         wasDegraded: false,
       }

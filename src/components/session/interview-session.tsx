@@ -247,92 +247,107 @@ export function InterviewSession({
 
   // Handle stop recording and process
   const handleStopRecording = async () => {
-    const audioBlob = await stopRecording()
-    if (!audioBlob) return
+  const audioBlob = await stopRecording()
 
-    const durationMs = Date.now() - recordingStartTime.current
-    
-    setState('processing')
+  if (!audioBlob) {
+    setError('No audio recorded. Please try again.')
+    setState('waiting_for_candidate')
+    return
+  }
+
+  if (audioBlob.size < 1000) {
+    setError('Recording too short. Please speak for at least 1 second.')
+    setState('waiting_for_candidate')
+    return
+  }
+
+  const durationMs = Date.now() - recordingStartTime.current
+
+  setState('processing')
+  setAtmosphericMessage(getAtmosphericMessage())
+
+  try {
+    // Transcribe audio
+    const formData = new FormData()
+    formData.append('audio', audioBlob, 'recording.webm')
+
+    const transcribeResponse = await fetch('/api/voice/transcribe', {
+      method: 'POST',
+      body: formData,
+    })
+
+    const transcribeData = await transcribeResponse.json()
+
+    if (!transcribeResponse.ok || transcribeData.success === false) {
+      throw new Error(transcribeData.friendlyMessage || transcribeData.error || 'Transcription failed')
+    }
+
+    if (!transcribeData.text || transcribeData.text.trim().length === 0) {
+      throw new Error('Could not understand audio. Please speak clearly and try again.')
+    }
+
+    const candidateText = transcribeData.text
+
+    // Add candidate message
+    const candidateMessage: Message = {
+      role: 'candidate',
+      content: candidateText,
+      timestamp: new Date(),
+      durationMs,
+    }
+
+    const updatedMessages = [...messages, candidateMessage]
+    setMessages(updatedMessages)
+
+    // Check if we should end the interview (after 5-7 exchanges)
+    const candidateCount = updatedMessages.filter(m => m.role === 'candidate').length
+    const shouldEnd = candidateCount >= 6
+
+    if (shouldEnd) {
+      await endInterview(updatedMessages)
+      return
+    }
+
+    // Get interviewer response
     setAtmosphericMessage(getAtmosphericMessage())
 
-    try {
-      // Transcribe audio
-      const formData = new FormData()
-      formData.append('audio', audioBlob)
+    const interviewResponse = await fetch('/api/interview/respond', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        sessionId,
+        difficulty,
+        interviewType,
+        conversationHistory: updatedMessages.map(m => ({
+          role: m.role,
+          content: m.content,
+        })),
+      }),
+    })
 
-      const transcribeResponse = await fetch('/api/voice/transcribe', {
-        method: 'POST',
-        body: formData,
-      })
+    const interviewData = await interviewResponse.json()
 
-      const transcribeData = await transcribeResponse.json()
-
-      if (transcribeData.success === false) {
-        throw new Error(transcribeData.friendlyMessage || 'Could not hear you')
-      }
-
-      const candidateText = transcribeData.text
-
-      // Add candidate message
-      const candidateMessage: Message = {
-        role: 'candidate',
-        content: candidateText,
-        timestamp: new Date(),
-        durationMs,
-      }
-      
-      const updatedMessages = [...messages, candidateMessage]
-      setMessages(updatedMessages)
-
-      // Check if we should end the interview (after 5-7 exchanges)
-      const candidateCount = updatedMessages.filter(m => m.role === 'candidate').length
-      const shouldEnd = candidateCount >= 6
-
-      if (shouldEnd) {
-        await endInterview(updatedMessages)
-        return
-      }
-
-      // Get interviewer response
-      setAtmosphericMessage(getAtmosphericMessage())
-      
-      const interviewResponse = await fetch('/api/interview/respond', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            sessionId, // ADD THIS
-            difficulty,
-            interviewType,
-            conversationHistory: updatedMessages.map(m => ({
-              role: m.role,
-              content: m.content,
-            })),
-          }),
-        })
-
-      const interviewData = await interviewResponse.json()
-
-      if (interviewData.success === false) {
-        throw new Error(interviewData.friendlyMessage || 'Interviewer disconnected')
-      }
-
-      // Add interviewer message
-      const interviewerMessage: Message = {
-        role: 'interviewer',
-        content: interviewData.response,
-        timestamp: new Date(),
-      }
-      setMessages([...updatedMessages, interviewerMessage])
-
-      // Speak response
-      await speakInterviewerResponse(interviewData.response)
-
-    } catch (err: any) {
-      console.error('Processing failed:', err)
-      setError(err.message || 'Something went wrong')
-      setState('error')
+    if (interviewData.success === false) {
+      throw new Error(interviewData.friendlyMessage || 'Interviewer disconnected')
     }
+
+    // Add interviewer message
+    const interviewerMessage: Message = {
+      role: 'interviewer',
+      content: interviewData.response,
+      timestamp: new Date(),
+    }
+    setMessages([...updatedMessages, interviewerMessage])
+
+    // Speak response
+    await speakInterviewerResponse(interviewData.response)
+
+  } catch (err: any) {
+    console.error('Processing failed:', err)
+    setError(err.message || 'Something went wrong. Please try again.')
+    setState('waiting_for_candidate')
   }
+}
 
   // End interview
   const endInterview = async (finalMessages: Message[]) => {

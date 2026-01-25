@@ -15,25 +15,47 @@ export function useAudioRecorder() {
   const timerRef = useRef<NodeJS.Timeout | null>(null)
   const startTimeRef = useRef<number>(0)
 
+  const getSupportedMimeType = (): string => {
+    // Prefer formats that Whisper handles well
+    const types = [
+      'audio/webm;codecs=opus',
+      'audio/webm',
+      'audio/mp4',
+      'audio/ogg;codecs=opus',
+      'audio/ogg',
+    ]
+
+    for (const type of types) {
+      if (MediaRecorder.isTypeSupported(type)) {
+        return type
+      }
+    }
+
+    return 'audio/webm' // fallback
+  }
+
   const startRecording = useCallback(async () => {
     try {
       setError(null)
       chunksRef.current = []
-      
-      // Request microphone access
+
       const stream = await navigator.mediaDevices.getUserMedia({
         audio: {
           echoCancellation: true,
           noiseSuppression: true,
-          sampleRate: 44100,
+          autoGainControl: true,
+          sampleRate: 16000, // Whisper prefers 16kHz
         },
       })
-      
+
       streamRef.current = stream
 
-      // Create MediaRecorder
+      const mimeType = getSupportedMimeType()
+      console.log('Recording with mimeType:', mimeType)
+
       const mediaRecorder = new MediaRecorder(stream, {
-        mimeType: 'audio/webm;codecs=opus',
+        mimeType,
+        audioBitsPerSecond: 128000,
       })
 
       mediaRecorder.ondataavailable = (event) => {
@@ -43,18 +65,17 @@ export function useAudioRecorder() {
       }
 
       mediaRecorderRef.current = mediaRecorder
-      mediaRecorder.start(100) // Collect data every 100ms
-      
-      // Start duration timer
+      mediaRecorder.start(1000) // Collect data every second
+
       startTimeRef.current = Date.now()
       timerRef.current = setInterval(() => {
         setDuration(Math.floor((Date.now() - startTimeRef.current) / 1000))
       }, 1000)
 
       setState('recording')
-    } catch (err) {
+    } catch (err: any) {
       console.error('Failed to start recording:', err)
-      setError('Could not access microphone. Please check permissions.')
+      setError(err.message || 'Could not access microphone')
       setState('idle')
     }
   }, [])
@@ -68,7 +89,6 @@ export function useAudioRecorder() {
 
       setState('processing')
 
-      // Clear timer
       if (timerRef.current) {
         clearInterval(timerRef.current)
         timerRef.current = null
@@ -77,16 +97,31 @@ export function useAudioRecorder() {
       const mediaRecorder = mediaRecorderRef.current
 
       mediaRecorder.onstop = () => {
-        // Stop all tracks
         if (streamRef.current) {
           streamRef.current.getTracks().forEach((track) => track.stop())
           streamRef.current = null
         }
 
-        // Create blob from chunks
-        const audioBlob = new Blob(chunksRef.current, { type: 'audio/webm' })
+        if (chunksRef.current.length === 0) {
+          console.error('No audio chunks recorded')
+          setError('No audio recorded')
+          setState('idle')
+          resolve(null)
+          return
+        }
+
+        // Get the mime type from the recorder
+        const mimeType = mediaRecorder.mimeType || 'audio/webm'
+        const audioBlob = new Blob(chunksRef.current, { type: mimeType })
+
+        console.log('Recorded audio:', {
+          size: audioBlob.size,
+          type: audioBlob.type,
+          chunks: chunksRef.current.length,
+          duration: duration,
+        })
+
         chunksRef.current = []
-        
         setState('idle')
         setDuration(0)
         resolve(audioBlob)
@@ -94,7 +129,7 @@ export function useAudioRecorder() {
 
       mediaRecorder.stop()
     })
-  }, [state])
+  }, [state, duration])
 
   const cancelRecording = useCallback(() => {
     if (timerRef.current) {

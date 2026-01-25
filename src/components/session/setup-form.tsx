@@ -189,6 +189,19 @@ export function SessionSetupForm({ targetRole, hasResume }: SessionSetupFormProp
         </p>
       )}
 
+      {/* Interview Info */}
+      <div className="p-4 rounded-lg bg-zinc-800/50 border border-zinc-700">
+        <p className="text-sm text-zinc-300">
+          <strong>What to expect:</strong>
+        </p>
+        <ul className="text-sm text-zinc-400 mt-2 space-y-1">
+          <li>• 5-6 behavioral questions covering different topics</li>
+          <li>• Follow-up questions to probe deeper</li>
+          <li>• About 10-15 minutes total</li>
+          <li>• Detailed feedback at the end</li>
+        </ul>
+      </div>
+
       {/* Start Button */}
       <Button
         onClick={handleStart}

@@ -19,23 +19,52 @@ export async function transcribeAudio(
   onRetry?: (message: string, attempt: number) => void
 ): Promise<TranscriptionResult | TranscriptionError> {
   const groq = getGroqClient()
-  
-  // Convert Blob to File for Groq API
-  const file = new File([audioBlob], 'audio.webm', { type: audioBlob.type })
+
+  // Validate blob
+  if (!audioBlob || audioBlob.size === 0) {
+    return {
+      success: false,
+      error: 'Empty audio blob',
+      friendlyMessage: 'No audio was recorded. Please try again.',
+    }
+  }
+
+  // Log for debugging
+  console.log('Transcribing audio:', {
+    size: audioBlob.size,
+    type: audioBlob.type,
+  })
+
+  // Determine file extension based on mime type
+  let extension = 'webm'
+  if (audioBlob.type.includes('mp4')) extension = 'mp4'
+  else if (audioBlob.type.includes('ogg')) extension = 'ogg'
+  else if (audioBlob.type.includes('wav')) extension = 'wav'
+
+  // Convert Blob to File with proper extension
+  const file = new File([audioBlob], `recording.${extension}`, {
+    type: audioBlob.type || 'audio/webm'
+  })
 
   const result = await executeWithFallback<{ text: string; duration: number }>(
     'stt',
     async (modelId) => {
+      console.log(`Attempting transcription with model: ${modelId}`)
+
       const transcription = await groq.audio.transcriptions.create({
         file: file,
         model: modelId,
         language: 'en',
-        prompt: 'This is an interview practice session. The speaker is answering behavioral interview questions clearly and professionally.',
         response_format: 'verbose_json',
       })
 
-      // Cast to any to access duration which exists in verbose_json but not in types
       const result = transcription as any
+
+      if (!transcription.text || transcription.text.trim().length === 0) {
+        throw new Error('Empty transcription result')
+      }
+
+      console.log('Transcription successful:', transcription.text.substring(0, 50))
 
       return {
         text: transcription.text,
