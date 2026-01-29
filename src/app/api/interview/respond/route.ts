@@ -27,7 +27,27 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const body = await request.json()
+    // Parse body with error handling
+    let body
+    try {
+      const text = await request.text()
+      if (!text) {
+        return NextResponse.json({
+          success: false,
+          error: 'Empty request body',
+          friendlyMessage: 'Something went wrong. Please try again.'
+        }, { status: 400 })
+      }
+      body = JSON.parse(text)
+    } catch (parseError) {
+      console.error('JSON parse error:', parseError)
+      return NextResponse.json({
+        success: false,
+        error: 'Invalid JSON',
+        friendlyMessage: 'Something went wrong. Please try again.'
+      }, { status: 400 })
+    }
+
     const context = requestSchema.parse(body)
 
     // Get resume context if session uses resume
@@ -38,13 +58,18 @@ export async function POST(request: Request) {
         where: { id: context.sessionId, userId: user.id },
       })
 
+      console.log('Session usedResume:', session?.usedResume)
+
       if (session?.usedResume) {
         const resume = await prisma.resume.findUnique({
           where: { userId: user.id },
         })
 
+        console.log('Resume found:', !!resume, 'parsedData:', !!resume?.parsedData)
+
         if (resume?.parsedData) {
           resumeContext = formatResumeForContext(resume.parsedData as ParsedResume)
+          console.log('Resume context generated:', resumeContext?.substring(0, 200))
         }
       }
     }
@@ -66,14 +91,18 @@ export async function POST(request: Request) {
     console.error('Interview response error:', error)
 
     if (error instanceof z.ZodError) {
-      return NextResponse.json({ error: 'Invalid request' }, { status: 400 })
+      return NextResponse.json({
+        success: false,
+        error: 'Invalid request format',
+        friendlyMessage: 'Something went wrong. Please try again.'
+      }, { status: 400 })
     }
 
     return NextResponse.json(
       {
         success: false,
         error: error.message || 'Failed to generate response',
-        friendlyMessage: "The interviewer is stuck in another meeting. Please try again."
+        friendlyMessage: "The interviewer is having trouble. Please try again."
       },
       { status: 500 }
     )

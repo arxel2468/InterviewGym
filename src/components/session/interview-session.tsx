@@ -1,15 +1,15 @@
 'use client'
 
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { useAudioRecorder } from '@/hooks/use-audio-recorder'
 import { speakText, stopSpeaking, isBrowserTTSSupported } from '@/lib/browser-tts'
-import { 
-  Mic, 
-  Square, 
-  Loader2, 
+import {
+  Mic,
+  Square,
+  Loader2,
   Volume2,
   VolumeX,
   MessageSquare,
@@ -25,7 +25,7 @@ type Message = {
   durationMs?: number
 }
 
-type SessionState = 
+type SessionState =
   | 'initializing'
   | 'interviewer_speaking'
   | 'waiting_for_candidate'
@@ -41,138 +41,107 @@ interface InterviewSessionProps {
   interviewType: string
 }
 
-const STATE_MESSAGES: Record<SessionState, string> = {
-  initializing: 'Connecting to interviewer...',
-  interviewer_speaking: 'Interviewer is speaking...',
-  waiting_for_candidate: 'Your turn to respond',
-  candidate_speaking: 'Recording your response...',
-  processing: 'Processing...',
-  error: 'Something went wrong',
-  ending: 'Wrapping up the interview...',
-  ended: 'Interview complete',
-}
-
 const ATMOSPHERIC_MESSAGES = [
   'The interviewer is reviewing your response...',
   'Taking notes...',
-  'The interviewer considers your answer...',
   'Preparing the next question...',
-  'The interviewer nods thoughtfully...',
 ]
 
-
-export function InterviewSession({ 
-  sessionId, 
-  difficulty, 
-  interviewType 
+export function InterviewSession({
+  sessionId,
+  difficulty,
+  interviewType
 }: InterviewSessionProps) {
   const router = useRouter()
-  
-  // State
+
   const [state, setState] = useState<SessionState>('initializing')
   const [messages, setMessages] = useState<Message[]>([])
   const [error, setError] = useState<string | null>(null)
   const [atmosphericMessage, setAtmosphericMessage] = useState('')
   const [isMuted, setIsMuted] = useState(false)
-  
-  // Refs
+
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const recordingStartTime = useRef<number>(0)
   const hasInitialized = useRef(false)
+  const currentAudio = useRef<HTMLAudioElement | null>(null)
 
-  // Audio recorder
-  const { 
-    isRecording, 
-    duration, 
-    startRecording, 
+  const {
+    isRecording,
+    duration,
+    startRecording,
     stopRecording,
-    error: recordError 
+    error: recordError
   } = useAudioRecorder()
 
-  // Scroll to bottom when messages change
+  // Scroll to bottom
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages])
 
-  // Start interview on mount
+  // Initialize
   useEffect(() => {
-    // Prevent double initialization in React Strict Mode
     if (hasInitialized.current) return
     hasInitialized.current = true
-
     startInterview()
 
-    // Cleanup function
     return () => {
-      stopSpeaking() // Stop any TTS on unmount
+      stopSpeaking()
+      if (currentAudio.current) {
+        currentAudio.current.pause()
+        currentAudio.current = null
+      }
     }
   }, [])
 
+  // Warn before leaving
   useEffect(() => {
     const handleBeforeUnload = (e: BeforeUnloadEvent) => {
       if (state !== 'ended' && state !== 'error' && messages.length > 0) {
         e.preventDefault()
-        e.returnValue = 'You have an interview in progress. Are you sure you want to leave?'
-        return e.returnValue
+        e.returnValue = 'Interview in progress. Are you sure?'
       }
     }
-
     window.addEventListener('beforeunload', handleBeforeUnload)
     return () => window.removeEventListener('beforeunload', handleBeforeUnload)
   }, [state, messages.length])
 
-
-  // Get random atmospheric message
   const getAtmosphericMessage = () => {
     return ATMOSPHERIC_MESSAGES[Math.floor(Math.random() * ATMOSPHERIC_MESSAGES.length)]
   }
 
-  // Start the interview
-  const startInterview = async () => {
-    setState('initializing')
-    setAtmosphericMessage('The interviewer is joining the call...')
+  const playAudio = async (base64Audio: string): Promise<void> => {
+    return new Promise((resolve, reject) => {
+      try {
+        const binaryString = atob(base64Audio)
+        const bytes = new Uint8Array(binaryString.length)
+        for (let i = 0; i < binaryString.length; i++) {
+          bytes[i] = binaryString.charCodeAt(i)
+        }
 
-    try {
-      const response = await fetch('/api/interview/respond', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          sessionId, // ADD THIS
-          difficulty,
-          interviewType,
-          conversationHistory: [],
-        }),
-      })
+        const blob = new Blob([bytes], { type: 'audio/wav' })
+        const url = URL.createObjectURL(blob)
+        const audio = new Audio(url)
+        currentAudio.current = audio
 
-      if (!response.ok) {
-        throw new Error('Failed to start interview')
+        audio.onended = () => {
+          URL.revokeObjectURL(url)
+          currentAudio.current = null
+          resolve()
+        }
+
+        audio.onerror = () => {
+          URL.revokeObjectURL(url)
+          currentAudio.current = null
+          reject(new Error('Audio playback failed'))
+        }
+
+        audio.play().catch(reject)
+      } catch (err) {
+        reject(err)
       }
-
-      const data = await response.json()
-      
-      if (data.success === false) {
-        throw new Error(data.friendlyMessage || 'Failed to connect')
-      }
-
-      // Add interviewer message
-      const interviewerMessage: Message = {
-        role: 'interviewer',
-        content: data.response,
-        timestamp: new Date(),
-      }
-      setMessages([interviewerMessage])
-
-      // Speak the response
-      await speakInterviewerResponse(data.response)
-      
-    } catch (err: any) {
-      console.error('Failed to start interview:', err)
-      setError(err.message || 'Failed to connect to interviewer')
-      setState('error')
-    }
+    })
   }
 
-  // Speak interviewer response
   const speakInterviewerResponse = async (text: string) => {
     if (isMuted) {
       setState('waiting_for_candidate')
@@ -182,7 +151,6 @@ export function InterviewSession({
     setState('interviewer_speaking')
 
     try {
-      // Try Groq TTS first
       const response = await fetch('/api/voice/synthesize', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -192,42 +160,33 @@ export function InterviewSession({
       const data = await response.json()
 
       if (data.shouldUseBrowserTTS || !data.audio) {
-        // Use browser TTS
+        console.log('Using browser TTS')
         await new Promise<void>((resolve) => {
           speakText(text, {
-            onEnd: () => resolve(),
+            onEnd: resolve,
             onError: () => resolve(),
           })
         })
       } else {
-        // Play Groq audio
-        const audioData = Uint8Array.from(atob(data.audio), c => c.charCodeAt(0))
-        const audioBlob = new Blob([audioData], { type: 'audio/wav' })
-        const audioUrl = URL.createObjectURL(audioBlob)
-        const audio = new Audio(audioUrl)
-        
-        await new Promise<void>((resolve) => {
-          audio.onended = () => {
-            URL.revokeObjectURL(audioUrl)
-            resolve()
-          }
-          audio.onerror = () => {
-            URL.revokeObjectURL(audioUrl)
-            // Fallback to browser TTS
+        console.log('Playing Groq TTS')
+        try {
+          await playAudio(data.audio)
+        } catch (audioErr) {
+          console.error('Groq audio failed, using browser:', audioErr)
+          await new Promise<void>((resolve) => {
             speakText(text, {
-              onEnd: () => resolve(),
+              onEnd: resolve,
               onError: () => resolve(),
             })
-          }
-          audio.play()
-        })
+          })
+        }
       }
     } catch (err) {
-      console.error('TTS failed, using browser:', err)
+      console.error('TTS error:', err)
       if (isBrowserTTSSupported()) {
         await new Promise<void>((resolve) => {
           speakText(text, {
-            onEnd: () => resolve(),
+            onEnd: resolve,
             onError: () => resolve(),
           })
         })
@@ -237,7 +196,44 @@ export function InterviewSession({
     setState('waiting_for_candidate')
   }
 
-  // Handle start recording
+  const startInterview = async () => {
+    setState('initializing')
+    setAtmosphericMessage('The interviewer is joining...')
+
+    try {
+      const response = await fetch('/api/interview/respond', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          sessionId,
+          difficulty,
+          interviewType,
+          conversationHistory: [],
+        }),
+      })
+
+      const data = await response.json()
+
+      if (!response.ok || data.success === false) {
+        throw new Error(data.friendlyMessage || data.error || 'Failed to start')
+      }
+
+      const message: Message = {
+        role: 'interviewer',
+        content: data.response,
+        timestamp: new Date(),
+      }
+      setMessages([message])
+
+      await speakInterviewerResponse(data.response)
+
+    } catch (err: any) {
+      console.error('Start interview error:', err)
+      setError(err.message || 'Failed to connect')
+      setState('error')
+    }
+  }
+
   const handleStartRecording = async () => {
     setError(null)
     recordingStartTime.current = Date.now()
@@ -245,117 +241,117 @@ export function InterviewSession({
     setState('candidate_speaking')
   }
 
-  // Handle stop recording and process
   const handleStopRecording = async () => {
-  const audioBlob = await stopRecording()
+    const audioBlob = await stopRecording()
 
-  if (!audioBlob) {
-    setError('No audio recorded. Please try again.')
-    setState('waiting_for_candidate')
-    return
-  }
-
-  if (audioBlob.size < 1000) {
-    setError('Recording too short. Please speak for at least 1 second.')
-    setState('waiting_for_candidate')
-    return
-  }
-
-  const durationMs = Date.now() - recordingStartTime.current
-
-  setState('processing')
-  setAtmosphericMessage(getAtmosphericMessage())
-
-  try {
-    // Transcribe audio
-    const formData = new FormData()
-    formData.append('audio', audioBlob, 'recording.webm')
-
-    const transcribeResponse = await fetch('/api/voice/transcribe', {
-      method: 'POST',
-      body: formData,
-    })
-
-    const transcribeData = await transcribeResponse.json()
-
-    if (!transcribeResponse.ok || transcribeData.success === false) {
-      throw new Error(transcribeData.friendlyMessage || transcribeData.error || 'Transcription failed')
-    }
-
-    if (!transcribeData.text || transcribeData.text.trim().length === 0) {
-      throw new Error('Could not understand audio. Please speak clearly and try again.')
-    }
-
-    const candidateText = transcribeData.text
-
-    // Add candidate message
-    const candidateMessage: Message = {
-      role: 'candidate',
-      content: candidateText,
-      timestamp: new Date(),
-      durationMs,
-    }
-
-    const updatedMessages = [...messages, candidateMessage]
-    setMessages(updatedMessages)
-
-    // Check if we should end the interview (after 5-7 exchanges)
-    const candidateCount = updatedMessages.filter(m => m.role === 'candidate').length
-    const shouldEnd = candidateCount >= 6
-
-    if (shouldEnd) {
-      await endInterview(updatedMessages)
+    if (!audioBlob || audioBlob.size < 1000) {
+      setError('Recording too short. Please try again.')
+      setState('waiting_for_candidate')
       return
     }
 
-    // Get interviewer response
+    const durationMs = Date.now() - recordingStartTime.current
+    setState('processing')
     setAtmosphericMessage(getAtmosphericMessage())
 
-    const interviewResponse = await fetch('/api/interview/respond', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        sessionId,
-        difficulty,
-        interviewType,
-        conversationHistory: updatedMessages.map(m => ({
-          role: m.role,
-          content: m.content,
-        })),
-      }),
-    })
+    try {
+      // Transcribe
+      const formData = new FormData()
+      formData.append('audio', audioBlob, 'recording.webm')
 
-    const interviewData = await interviewResponse.json()
+      const transcribeRes = await fetch('/api/voice/transcribe', {
+        method: 'POST',
+        body: formData,
+      })
 
-    if (interviewData.success === false) {
-      throw new Error(interviewData.friendlyMessage || 'Interviewer disconnected')
+      const transcribeData = await transcribeRes.json()
+
+      if (!transcribeRes.ok || transcribeData.success === false) {
+        throw new Error(transcribeData.friendlyMessage || 'Could not hear you')
+      }
+
+      if (!transcribeData.text?.trim()) {
+        throw new Error('No speech detected. Please try again.')
+      }
+
+      // Add candidate message
+      const candidateMessage: Message = {
+        role: 'candidate',
+        content: transcribeData.text,
+        timestamp: new Date(),
+        durationMs,
+      }
+
+      const updatedMessages = [...messages, candidateMessage]
+      setMessages(updatedMessages)
+
+      // Check if should end
+      const candidateCount = updatedMessages.filter(m => m.role === 'candidate').length
+      if (candidateCount >= 6) {
+        await endInterview(updatedMessages)
+        return
+      }
+
+      // Get next response
+      setAtmosphericMessage(getAtmosphericMessage())
+
+      const interviewRes = await fetch('/api/interview/respond', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          sessionId,
+          difficulty,
+          interviewType,
+          conversationHistory: updatedMessages.map(m => ({
+            role: m.role,
+            content: m.content,
+          })),
+        }),
+      })
+
+      const interviewData = await interviewRes.json()
+
+      if (!interviewRes.ok || interviewData.success === false) {
+        throw new Error(interviewData.friendlyMessage || 'Interviewer disconnected')
+      }
+
+      // Check if closing
+      if (interviewData.isClosing) {
+        const closingMessage: Message = {
+          role: 'interviewer',
+          content: interviewData.response,
+          timestamp: new Date(),
+        }
+        const finalMessages = [...updatedMessages, closingMessage]
+        setMessages(finalMessages)
+        await speakInterviewerResponse(interviewData.response)
+
+        // End after closing remarks
+        setTimeout(() => endInterview(finalMessages), 2000)
+        return
+      }
+
+      const interviewerMessage: Message = {
+        role: 'interviewer',
+        content: interviewData.response,
+        timestamp: new Date(),
+      }
+      setMessages([...updatedMessages, interviewerMessage])
+
+      await speakInterviewerResponse(interviewData.response)
+
+    } catch (err: any) {
+      console.error('Processing error:', err)
+      setError(err.message || 'Something went wrong')
+      setState('waiting_for_candidate')
     }
-
-    // Add interviewer message
-    const interviewerMessage: Message = {
-      role: 'interviewer',
-      content: interviewData.response,
-      timestamp: new Date(),
-    }
-    setMessages([...updatedMessages, interviewerMessage])
-
-    // Speak response
-    await speakInterviewerResponse(interviewData.response)
-
-  } catch (err: any) {
-    console.error('Processing failed:', err)
-    setError(err.message || 'Something went wrong. Please try again.')
-    setState('waiting_for_candidate')
   }
-}
 
-  // End interview
   const endInterview = async (finalMessages: Message[]) => {
     setState('ending')
-    setAtmosphericMessage('The interviewer is wrapping up...')
+    setAtmosphericMessage('Generating your feedback...')
 
     try {
-      // Save session and generate feedback
       const response = await fetch(`/api/session/${sessionId}/complete`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -373,48 +369,42 @@ export function InterviewSession({
       }
 
       setState('ended')
-      
-      // Redirect to feedback page after a brief moment
       setTimeout(() => {
         router.push(`/dashboard/session/${sessionId}/feedback`)
       }, 1500)
 
     } catch (err: any) {
-      console.error('Failed to end interview:', err)
+      console.error('End interview error:', err)
       setError(err.message)
       setState('error')
     }
   }
 
-  // Handle manual end
   const handleEndInterview = async () => {
-    // If not enough conversation, mark as abandoned and go back
     if (messages.length < 2) {
       try {
-        await fetch(`/api/session/${sessionId}/abandon`, {
-          method: 'POST',
-        })
-      } catch (e) {
-        // Ignore errors
-      }
+        await fetch(`/api/session/${sessionId}/abandon`, { method: 'POST' })
+      } catch (e) {}
       router.push('/dashboard')
       return
     }
-    endInterview(messages)
+    await endInterview(messages)
   }
 
-  // Toggle mute
   const toggleMute = () => {
     if (!isMuted) {
       stopSpeaking()
+      if (currentAudio.current) {
+        currentAudio.current.pause()
+      }
     }
     setIsMuted(!isMuted)
   }
 
-  // Retry after error
   const handleRetry = () => {
     setError(null)
     if (messages.length === 0) {
+      hasInitialized.current = false
       startInterview()
     } else {
       setState('waiting_for_candidate')
@@ -429,7 +419,7 @@ export function InterviewSession({
           <h1 className="text-xl font-semibold text-white capitalize">
             {interviewType.replace('_', ' ')} Interview
           </h1>
-          <p className="text-sm text-zinc-400 capitalize">{difficulty} difficulty</p>
+          <p className="text-sm text-zinc-400 capitalize">{difficulty}</p>
         </div>
         <div className="flex items-center gap-2">
           <Button
@@ -438,11 +428,7 @@ export function InterviewSession({
             onClick={toggleMute}
             className="border-zinc-700"
           >
-            {isMuted ? (
-              <VolumeX className="w-4 h-4" />
-            ) : (
-              <Volume2 className="w-4 h-4" />
-            )}
+            {isMuted ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4" />}
           </Button>
           <Button
             variant="outline"
@@ -462,17 +448,15 @@ export function InterviewSession({
           {messages.map((message, index) => (
             <div
               key={index}
-              className={`flex gap-3 ${
-                message.role === 'candidate' ? 'flex-row-reverse' : ''
-              }`}
+              className={`flex gap-3 ${message.role === 'candidate' ? 'flex-row-reverse' : ''}`}
             >
               <div className={`
                 w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0
-                ${message.role === 'interviewer' 
-                  ? 'bg-violet-500/20 text-violet-400' 
+                ${message.role === 'interviewer'
+                  ? 'bg-violet-500/20 text-violet-400'
                   : 'bg-blue-500/20 text-blue-400'}
               `}>
-                {message.role === 'interviewer' 
+                {message.role === 'interviewer'
                   ? <MessageSquare className="w-4 h-4" />
                   : <User className="w-4 h-4" />
                 }
@@ -487,8 +471,7 @@ export function InterviewSession({
               </div>
             </div>
           ))}
-          
-          {/* Status indicator */}
+
           {(state === 'initializing' || state === 'processing' || state === 'ending') && (
             <div className="flex items-center gap-3">
               <div className="w-8 h-8 rounded-full bg-violet-500/20 flex items-center justify-center">
@@ -499,21 +482,21 @@ export function InterviewSession({
               </div>
             </div>
           )}
-          
+
           <div ref={messagesEndRef} />
         </div>
 
-        {/* Error display */}
+        {/* Error */}
         {error && (
           <div className="p-4 border-t border-zinc-800 bg-red-500/10">
             <div className="flex items-center gap-3">
               <AlertTriangle className="w-5 h-5 text-red-400" />
               <p className="text-red-400 text-sm flex-1">{error}</p>
-              <Button 
-                size="sm" 
-                variant="outline" 
+              <Button
+                size="sm"
+                variant="outline"
                 onClick={handleRetry}
-                className="border-red-500/30 text-red-400 hover:bg-red-500/10"
+                className="border-red-500/30 text-red-400"
               >
                 Retry
               </Button>
@@ -521,7 +504,7 @@ export function InterviewSession({
           </div>
         )}
 
-        {/* Recording controls */}
+        {/* Controls */}
         <div className="p-4 border-t border-zinc-800">
           <div className="flex items-center justify-center gap-4">
             {state === 'waiting_for_candidate' && !isRecording && (
@@ -550,20 +533,20 @@ export function InterviewSession({
             {state === 'interviewer_speaking' && (
               <div className="flex items-center gap-2 text-zinc-400">
                 <Volume2 className="w-5 h-5 animate-pulse" />
-                <span>Interviewer is speaking...</span>
+                <span>Interviewer speaking...</span>
               </div>
             )}
 
             {(state === 'processing' || state === 'ending') && (
               <div className="flex items-center gap-2 text-zinc-400">
                 <Loader2 className="w-5 h-5 animate-spin" />
-                <span>{STATE_MESSAGES[state]}</span>
+                <span>{state === 'ending' ? 'Generating feedback...' : 'Processing...'}</span>
               </div>
             )}
 
             {state === 'ended' && (
-              <div className="flex items-center gap-2 text-green-400">
-                <span>Interview complete! Redirecting to feedback...</span>
+              <div className="text-green-400">
+                Interview complete! Redirecting...
               </div>
             )}
           </div>

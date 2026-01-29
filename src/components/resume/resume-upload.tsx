@@ -247,49 +247,50 @@ export function ResumeUpload({ currentResume }: ResumeUploadProps) {
           </div>
         ) : (
           <>
-            <div className="border-2 border-dashed border-zinc-700 rounded-lg p-6 text-center">
-              <Upload className="w-8 h-8 text-zinc-500 mx-auto mb-3" />
-              <p className="text-zinc-300 text-sm mb-1">Upload your resume</p>
-              <p className="text-zinc-500 text-xs mb-4">PDF, DOC, DOCX, or TXT</p>
 
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept=".pdf,.doc,.docx,.txt"
-                onChange={handleFileSelect}
-                className="hidden"
+          <div className="border-2 border-dashed border-zinc-700 rounded-lg p-6 text-center">
+            <Upload className="w-8 h-8 text-zinc-500 mx-auto mb-3" />
+            <p className="text-zinc-300 text-sm mb-1">Add your resume</p>
+            <p className="text-zinc-500 text-xs mb-4">Paste text works best • PDF upload may be limited</p>
+
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept=".pdf,.doc,.docx,.txt"
+              onChange={handleFileSelect}
+              className="hidden"
+              disabled={isUploading}
+            />
+
+            <div className="flex flex-col gap-2">
+              <Button
+                onClick={() => setShowPaste(true)}
                 disabled={isUploading}
-              />
-
-              <div className="flex justify-center gap-2">
-                <Button
-                  onClick={() => fileInputRef.current?.click()}
-                  disabled={isUploading}
-                  variant="outline"
-                  className="border-zinc-700"
-                >
-                  {isUploading ? (
-                    <>
-                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                      Analyzing...
-                    </>
-                  ) : (
-                    <>
-                      <Upload className="w-4 h-4 mr-2" />
-                      Upload
-                    </>
-                  )}
-                </Button>
-                <Button
-                  onClick={() => setShowPaste(true)}
-                  variant="outline"
-                  className="border-zinc-700"
-                >
-                  <ClipboardPaste className="w-4 h-4 mr-2" />
-                  Paste Text
-                </Button>
-              </div>
+                className="bg-gradient-primary hover:opacity-90"
+              >
+                <ClipboardPaste className="w-4 h-4 mr-2" />
+                Paste Resume Text
+              </Button>
+              <Button
+                onClick={() => fileInputRef.current?.click()}
+                disabled={isUploading}
+                variant="outline"
+                className="border-zinc-700"
+              >
+                {isUploading ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Processing...
+                  </>
+                ) : (
+                  <>
+                    <Upload className="w-4 h-4 mr-2" />
+                    Upload File
+                  </>
+                )}
+              </Button>
             </div>
+          </div>
 
             <div className="flex items-start gap-2 p-3 rounded-lg bg-violet-500/10 border border-violet-500/20">
               <AlertCircle className="w-4 h-4 text-violet-400 flex-shrink-0 mt-0.5" />

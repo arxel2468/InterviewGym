@@ -39,50 +39,58 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'No file provided' }, { status: 400 })
     }
 
-    // Validate file type
     const allowedTypes = [
       'application/pdf',
       'text/plain',
       'application/msword',
       'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
     ]
+
     if (!allowedTypes.includes(file.type)) {
       return NextResponse.json({
-        error: 'Invalid file type. Please upload PDF, DOC, DOCX, or TXT.'
+        error: 'Invalid file type. Please upload PDF, DOC, DOCX, or TXT, or use the paste option.'
       }, { status: 400 })
     }
 
-    // Validate file size (2MB max - we only need text)
     if (file.size > 2 * 1024 * 1024) {
       return NextResponse.json({
         error: 'File too large. Maximum size is 2MB.'
       }, { status: 400 })
     }
 
-    // Extract text from file (in memory, not stored)
+    // Extract text
     const rawText = await extractTextFromFile(file)
 
-    if (rawText.length < 50) {
+    console.log('Extracted text length:', rawText.length)
+    console.log('First 500 chars:', rawText.substring(0, 500))
+
+    if (rawText.length < 100) {
       return NextResponse.json({
-        error: 'Could not extract enough text from file. Try a different format or paste your resume text.'
+        error: 'Could not extract enough text. PDF parsing is limited - please use "Paste Text" option instead for best results.'
       }, { status: 400 })
     }
 
-    // Parse resume with AI
+    // Parse resume
     const parsedData = await parseResume(rawText)
 
-    // Delete existing resume if any
+    console.log('Parsed resume:', {
+      skills: parsedData.skills?.length || 0,
+      experience: parsedData.experience?.length || 0,
+      projects: parsedData.projects?.length || 0,
+    })
+
+    // Delete existing
     await prisma.resume.deleteMany({
       where: { userId: user.id },
     })
 
-    // Save ONLY parsed data to database (no file storage)
+    // Save
     const resume = await prisma.resume.create({
       data: {
         userId: user.id,
-        fileUrl: '', // Not storing file
+        fileUrl: '',
         fileName: file.name,
-        rawText: null, // Not storing raw text either
+        rawText: rawText.substring(0, 10000), // Store for debugging
         parsedData,
       },
     })
@@ -118,17 +126,44 @@ async function extractTextFromFile(file: File): Promise<string> {
   const arrayBuffer = await file.arrayBuffer()
   const buffer = Buffer.from(arrayBuffer)
 
-  // For text files
+  // For plain text files
   if (file.type === 'text/plain') {
     return new TextDecoder().decode(buffer)
   }
 
-  // For PDF and DOC files, extract readable text
-  // This is a simple extraction - strips non-printable characters
+  // For PDF - try to extract readable text
+  // This is a basic extraction that works for text-based PDFs
+  // Binary/scanned PDFs won't work well
   const text = buffer.toString('utf-8')
-    .replace(/[^\x20-\x7E\n\r\t]/g, ' ')
+
+  // Try to find text content in PDF
+  // PDFs store text in various ways, this is a simple heuristic
+  let extracted = ''
+
+  // Method 1: Look for text between parentheses (PDF text objects)
+  const textMatches = text.match(/\(([^)]+)\)/g)
+  if (textMatches) {
+    extracted = textMatches
+      .map(m => m.slice(1, -1))
+      .filter(t => t.length > 2 && /[a-zA-Z]/.test(t))
+      .join(' ')
+  }
+
+  // Method 2: If that didn't work well, try extracting all printable ASCII
+  if (extracted.length < 200) {
+    extracted = text
+      .replace(/[^\x20-\x7E\n\r\t]/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim()
+  }
+
+  // Clean up common PDF artifacts
+  extracted = extracted
+    .replace(/\\n/g, '\n')
+    .replace(/\\r/g, '')
+    .replace(/\\t/g, ' ')
     .replace(/\s+/g, ' ')
     .trim()
-  
-  return text
+
+  return extracted
 }
