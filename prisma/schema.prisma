@@ -73,6 +73,7 @@ model Session {
   // Session config
   interviewType String @map("interview_type")
   difficulty    String
+  targetRole    String? @map("target_role")
 
   // Status
   status String @default("in_progress")

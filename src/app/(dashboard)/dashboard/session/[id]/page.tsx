@@ -37,6 +37,7 @@ export default async function SessionPage({ params }: PageProps) {
       sessionId={session.id}
       difficulty={session.difficulty as 'warmup' | 'standard' | 'intense'}
       interviewType={session.interviewType}
+      targetRole={session.targetRole || 'fullstack'}
     />
   )
 }

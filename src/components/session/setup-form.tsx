@@ -185,33 +185,37 @@ export function SessionSetupForm({ targetRole, hasResume }: SessionSetupFormProp
       </div>
 
       {/* Role Selection (for technical interviews) */}
-      {showRoleSelection && (
-        <div className="space-y-3">
-          <label className="text-sm font-medium text-zinc-300">
-            Target Role
-          </label>
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-            {ROLES.map((r) => {
-              const isSelected = role === r.value
-              return (
-                <button
-                  key={r.value}
-                  onClick={() => setRole(r.value)}
-                  className={`p-3 rounded-lg border text-center transition-all ${
-                    isSelected
-                      ? 'border-violet-500 bg-violet-500/10'
-                      : 'border-zinc-800 hover:border-zinc-700 bg-zinc-900/50'
-                  }`}
-                >
-                  <p className={`text-sm ${isSelected ? 'text-white' : 'text-zinc-400'}`}>
-                    {r.label}
-                  </p>
-                </button>
-              )
-            })}
-          </div>
-        </div>
-      )}
+      {/* Role Selection - Always Show */}
+<div className="space-y-3">
+  <label className="text-sm font-medium text-zinc-300">
+    Target Role
+    {interviewType === 'technical' && (
+      <span className="text-violet-400 ml-2 text-xs">
+        (affects question topics)
+      </span>
+    )}
+  </label>
+  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+    {ROLES.map((r) => {
+      const isSelected = role === r.value
+      return (
+        <button
+          key={r.value}
+          onClick={() => setRole(r.value)}
+          className={`p-3 rounded-lg border text-center transition-all ${
+            isSelected
+              ? 'border-violet-500 bg-violet-500/10'
+              : 'border-zinc-800 hover:border-zinc-700 bg-zinc-900/50'
+          }`}
+        >
+          <p className={`text-sm ${isSelected ? 'text-white' : 'text-zinc-400'}`}>
+            {r.label}
+          </p>
+        </button>
+      )
+    })}
+  </div>
+</div>
 
       {/* Difficulty */}
       <div className="space-y-3">

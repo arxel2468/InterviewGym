@@ -39,14 +39,29 @@ export function useAudioRecorder() {
       setError(null)
       chunksRef.current = []
 
-      const stream = await navigator.mediaDevices.getUserMedia({
-        audio: {
-          echoCancellation: true,
-          noiseSuppression: true,
-          autoGainControl: true,
-          sampleRate: 16000, // Whisper prefers 16kHz
-        },
-      })
+      // Check if mediaDevices is available
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        throw new Error('Your browser does not support audio recording. Please use Chrome, Firefox, or Safari.')
+      }
+
+      let stream: MediaStream
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({
+          audio: {
+            echoCancellation: true,
+            noiseSuppression: true,
+            autoGainControl: true,
+          },
+        })
+      } catch (mediaError: any) {
+        if (mediaError.name === 'NotAllowedError' || mediaError.name === 'PermissionDeniedError') {
+          throw new Error('Microphone access denied. Please allow microphone access in your browser settings and reload the page.')
+        } else if (mediaError.name === 'NotFoundError' || mediaError.name === 'DevicesNotFoundError') {
+          throw new Error('No microphone found. Please connect a microphone and try again.')
+        } else {
+          throw new Error('Could not access microphone. Please check your audio settings.')
+        }
+      }
 
       streamRef.current = stream
 

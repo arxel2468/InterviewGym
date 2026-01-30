@@ -39,6 +39,7 @@ interface InterviewSessionProps {
   sessionId: string
   difficulty: 'warmup' | 'standard' | 'intense'
   interviewType: string
+  targetRole: string
 }
 
 const ATMOSPHERIC_MESSAGES = [
@@ -64,6 +65,10 @@ export function InterviewSession({
   const recordingStartTime = useRef<number>(0)
   const hasInitialized = useRef(false)
   const currentAudio = useRef<HTMLAudioElement | null>(null)
+
+  const candidateMessageCount = messages.filter(m => m.role === 'candidate').length
+  const estimatedTotal = 6 // or get from interview type config
+  const progress = Math.min(100, (candidateMessageCount / estimatedTotal) * 100)
 
   const {
     isRecording,
@@ -208,6 +213,7 @@ export function InterviewSession({
           sessionId,
           difficulty,
           interviewType,
+          targetRole,
           conversationHistory: [],
         }),
       })
@@ -419,7 +425,20 @@ export function InterviewSession({
           <h1 className="text-xl font-semibold text-white capitalize">
             {interviewType.replace('_', ' ')} Interview
           </h1>
-          <p className="text-sm text-zinc-400 capitalize">{difficulty}</p>
+          <div className="flex items-center gap-2 mt-1">
+            <p className="text-sm text-zinc-400 capitalize">{difficulty}</p>
+            <span className="text-zinc-600">•</span>
+            <p className="text-sm text-zinc-400">
+              Question {candidateMessageCount + 1} of ~{estimatedTotal}
+            </p>
+          </div>
+          {/* Progress bar */}
+          <div className="w-48 h-1 bg-zinc-800 rounded-full mt-2">
+            <div
+              className="h-full bg-violet-500 rounded-full transition-all duration-300"
+              style={{ width: `${progress}%` }}
+            />
+          </div>
         </div>
         <div className="flex items-center gap-2">
           <Button

@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { prisma } from '@/lib/prisma'
+import { checkRateLimit } from '@lib/rate-limit'
 import { z } from 'zod'
 
 const createSessionSchema = z.object({
@@ -17,6 +18,16 @@ export async function POST(request: Request) {
 
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    const rateLimit = await checkRateLimit(user.id)
+
+    if (!rateLimit.allowed) {
+      return NextResponse.json({
+        error: 'Daily limit reached',
+        message: `You've used all ${10} sessions for today. Come back tomorrow!`,
+        resetAt: rateLimit.resetAt,
+      }, { status: 429 })
     }
 
     const body = await request.json()
@@ -43,6 +54,7 @@ export async function POST(request: Request) {
         userId: user.id,
         interviewType,
         difficulty,
+        targetRole,
         usedResume: useResume || false,
         status: 'in_progress',
       },
