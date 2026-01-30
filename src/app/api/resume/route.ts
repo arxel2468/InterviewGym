@@ -2,12 +2,13 @@ import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { prisma } from '@/lib/prisma'
 import { parseResume } from '@/lib/groq/resume-parser'
+import { extractTextFromFile } from '@/lib/utils/file-parser'
 
 export async function GET() {
   try {
     const supabase = await createClient()
     const { data: { user } } = await supabase.auth.getUser()
-    
+
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
@@ -27,14 +28,14 @@ export async function POST(request: Request) {
   try {
     const supabase = await createClient()
     const { data: { user } } = await supabase.auth.getUser()
-    
+
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
     const formData = await request.formData()
     const file = formData.get('file') as File
-    
+
     if (!file) {
       return NextResponse.json({ error: 'No file provided' }, { status: 400 })
     }
@@ -48,32 +49,39 @@ export async function POST(request: Request) {
 
     if (!allowedTypes.includes(file.type)) {
       return NextResponse.json({
-        error: 'Invalid file type. Please upload PDF, DOC, DOCX, or TXT, or use the paste option.'
+        error: 'Invalid file type. Please upload PDF, DOC, DOCX, or TXT.'
       }, { status: 400 })
     }
 
-    if (file.size > 2 * 1024 * 1024) {
+    if (file.size > 5 * 1024 * 1024) {
       return NextResponse.json({
-        error: 'File too large. Maximum size is 2MB.'
+        error: 'File too large. Maximum size is 5MB.'
       }, { status: 400 })
     }
 
-    // Extract text
-    const rawText = await extractTextFromFile(file)
+    // Extract text using proper parsers
+    let rawText: string
+    try {
+      rawText = await extractTextFromFile(file)
+    } catch (parseError: any) {
+      return NextResponse.json({
+        error: parseError.message || 'Failed to parse file'
+      }, { status: 400 })
+    }
 
     console.log('Extracted text length:', rawText.length)
-    console.log('First 500 chars:', rawText.substring(0, 500))
 
     if (rawText.length < 100) {
       return NextResponse.json({
-        error: 'Could not extract enough text. PDF parsing is limited - please use "Paste Text" option instead for best results.'
+        error: 'Could not extract enough text from file.'
       }, { status: 400 })
     }
 
-    // Parse resume
+    // Parse with AI
     const parsedData = await parseResume(rawText)
 
     console.log('Parsed resume:', {
+      name: parsedData.name,
       skills: parsedData.skills?.length || 0,
       experience: parsedData.experience?.length || 0,
       projects: parsedData.projects?.length || 0,
@@ -90,15 +98,17 @@ export async function POST(request: Request) {
         userId: user.id,
         fileUrl: '',
         fileName: file.name,
-        rawText: rawText.substring(0, 10000), // Store for debugging
+        rawText: rawText.substring(0, 15000),
         parsedData,
       },
     })
 
     return NextResponse.json({ resume, parsed: parsedData })
-  } catch (error) {
+  } catch (error: any) {
     console.error('Upload resume error:', error)
-    return NextResponse.json({ error: 'Failed to process resume' }, { status: 500 })
+    return NextResponse.json({
+      error: error.message || 'Failed to process resume'
+    }, { status: 500 })
   }
 }
 
@@ -120,50 +130,4 @@ export async function DELETE() {
     console.error('Delete resume error:', error)
     return NextResponse.json({ error: 'Failed to delete resume' }, { status: 500 })
   }
-}
-
-async function extractTextFromFile(file: File): Promise<string> {
-  const arrayBuffer = await file.arrayBuffer()
-  const buffer = Buffer.from(arrayBuffer)
-
-  // For plain text files
-  if (file.type === 'text/plain') {
-    return new TextDecoder().decode(buffer)
-  }
-
-  // For PDF - try to extract readable text
-  // This is a basic extraction that works for text-based PDFs
-  // Binary/scanned PDFs won't work well
-  const text = buffer.toString('utf-8')
-
-  // Try to find text content in PDF
-  // PDFs store text in various ways, this is a simple heuristic
-  let extracted = ''
-
-  // Method 1: Look for text between parentheses (PDF text objects)
-  const textMatches = text.match(/\(([^)]+)\)/g)
-  if (textMatches) {
-    extracted = textMatches
-      .map(m => m.slice(1, -1))
-      .filter(t => t.length > 2 && /[a-zA-Z]/.test(t))
-      .join(' ')
-  }
-
-  // Method 2: If that didn't work well, try extracting all printable ASCII
-  if (extracted.length < 200) {
-    extracted = text
-      .replace(/[^\x20-\x7E\n\r\t]/g, ' ')
-      .replace(/\s+/g, ' ')
-      .trim()
-  }
-
-  // Clean up common PDF artifacts
-  extracted = extracted
-    .replace(/\\n/g, '\n')
-    .replace(/\\r/g, '')
-    .replace(/\\t/g, ' ')
-    .replace(/\s+/g, ' ')
-    .trim()
-
-  return extracted
 }

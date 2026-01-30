@@ -4,8 +4,9 @@ import { prisma } from '@/lib/prisma'
 import { z } from 'zod'
 
 const createSessionSchema = z.object({
-  interviewType: z.string(),
+  interviewType: z.enum(['behavioral', 'technical', 'hr_screen', 'system_design']),
   difficulty: z.enum(['warmup', 'standard', 'intense']),
+  targetRole: z.string().optional(),
   useResume: z.boolean().optional(),
 })
 
@@ -19,7 +20,7 @@ export async function POST(request: Request) {
     }
 
     const body = await request.json()
-    const { interviewType, difficulty, useResume } = createSessionSchema.parse(body)
+    const { interviewType, difficulty, targetRole, useResume } = createSessionSchema.parse(body)
 
     // Check for existing in-progress session
     const existingSession = await prisma.session.findFirst({
@@ -30,14 +31,13 @@ export async function POST(request: Request) {
     })
 
     if (existingSession) {
-      // Return the existing session instead of creating a new one
       return NextResponse.json({
         session: existingSession,
         resumed: true,
       })
     }
 
-    // Create session
+    // Create new session
     const session = await prisma.session.create({
       data: {
         userId: user.id,
@@ -47,6 +47,14 @@ export async function POST(request: Request) {
         status: 'in_progress',
       },
     })
+
+    // Store target role in user profile if changed
+    if (targetRole) {
+      await prisma.user.update({
+        where: { id: user.id },
+        data: { targetRole },
+      })
+    }
 
     return NextResponse.json({ session, resumed: false })
   } catch (error) {

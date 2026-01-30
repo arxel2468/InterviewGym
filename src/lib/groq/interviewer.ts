@@ -1,12 +1,13 @@
-import { getGroqClient } from './client'
-import { executeWithFallback, getDegradedMessage } from './fallback'
-import { getPersona, InterviewerPersona } from '@/lib/prompts/interviewer-personas'
 import {
   selectQuestionsForSession,
   getRandomFollowUp,
   Question,
   BEHAVIORAL_QUESTIONS
 } from '@/lib/questions/behavioral'
+import { getTechnicalQuestionsForRole } from '@/lib/questions/technical'
+import { getHRScreenQuestions } from '@/lib/questions/hr-screen'
+import { getSystemDesignQuestions } from '@/lib/questions/system-design'
+import { TargetRole, InterviewType } from '@/lib/questions'
 
 export type Difficulty = 'warmup' | 'standard' | 'intense'
 
@@ -21,7 +22,7 @@ export type InterviewContext = {
   targetRole?: string
   resumeContext?: string
   conversationHistory: ConversationMessage[]
-  questionPlan?: string[] // IDs of planned questions
+  questionPlan?: string[]
   currentQuestionIndex?: number
 }
 
@@ -100,6 +101,41 @@ ${progressNote}`
 }
 
 // ============================================
+// ASK RIGHT QUESTIONS
+// ============================================
+function getQuestionsForInterview(
+  interviewType: string,
+  targetRole?: string
+): Question[] {
+  switch (interviewType) {
+    case 'technical':
+      return getTechnicalQuestionsForRole((targetRole as TargetRole) || 'fullstack', 6)
+    case 'hr_screen':
+      return getHRScreenQuestions(8)
+    case 'system_design':
+      return getSystemDesignQuestions(2)
+    case 'behavioral':
+    default:
+      return selectQuestionsForSession(5)
+  }
+}
+
+// Also need to get ALL questions for lookup
+function getAllQuestions(interviewType: string): Question[] {
+  switch (interviewType) {
+    case 'technical':
+      return require('@/lib/questions/technical').TECHNICAL_QUESTIONS
+    case 'hr_screen':
+      return require('@/lib/questions/hr-screen').HR_SCREEN_QUESTIONS
+    case 'system_design':
+      return require('@/lib/questions/system-design').SYSTEM_DESIGN_QUESTIONS
+    case 'behavioral':
+    default:
+      return BEHAVIORAL_QUESTIONS
+  }
+}
+
+// ============================================
 // INTERVIEW STATE MANAGEMENT
 // ============================================
 
@@ -156,8 +192,10 @@ export async function generateInterviewerResponse(
   let questionPlan = context.questionPlan || []
   let currentQuestionIndex = context.currentQuestionIndex || 0
 
+  const allQuestions = getAllQuestions(context.interviewType)
+
   if (questionPlan.length === 0) {
-    const questions = selectQuestionsForSession(5)
+    const questions = getQuestionsForInterview(context.interviewType, context.targetRole)
     questionPlan = questions.map(q => q.id)
   }
 
