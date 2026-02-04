@@ -1,125 +1,298 @@
 # InterviewGym
 
-InterviewGym is a Next.js 13 (App Router) application for creating, running, and reviewing AI-assisted mock interview sessions. It combines server-side logic, a client UI, voice recording/processing, and integrations with database and AI services to let users run interactive interview sessions, capture audio, transcribe, synthesize voice, and store session data.
+InterviewGym is an AI-powered voice-based interview practice platform built with Next.js. It helps candidates prepare for job interviews through realistic mock sessions with an intelligent interviewer that asks real questions, pushes back on weak answers, and provides actionable feedback.
 
-## Key features
+## Features
 
-- **Interactive interview sessions**: start new sessions, record responses, and review session history.
-- **Audio recording & playback**: browser recording, server-side transcription and TTS synthesis.
-- **Session feedback**: collect and store reviewer feedback for each session.
-- **User onboarding & auth**: basic onboarding flows and auth provider integration.
+### Interactive Voice Interviews
 
-## Tech stack
+- **Voice-First Practice**: Speak your answers out loud, just like in a real interview
+- **AI Interviewer**: Dynamic interviewer that asks follow-up questions and challenges weak responses
+- **Multiple Interview Types**: Behavioral, HR screen, and technical verbal interviews
+- **Difficulty Levels**: Warm-up, standard, and intense modes for progressive practice
 
-- **Framework**: Next.js 13 (App Router) — source in [src/app](src/app)
-- **Database**: Prisma ORM (schema in `prisma/schema.prisma`) with your chosen SQL database (Postgres recommended)
-- **Auth / Realtime**: Supabase integration (see [src/lib/supabase](src/lib/supabase))
-- **AI / TTS / Transcription**: Pluggable providers called from server API routes in [src/app/api](src/app/api)
-- **UI**: Tailwind CSS + React components in [src/components](src/components)
+### Real-Time Feedback & Analytics
 
-## Project layout (high level)
+- **Speech Metrics**: Tracks filler words, pauses, response length, and word count
+- **AI-Evaluated Scores**: Clarity, structure, relevance, and confidence scoring (1-10)
+- **Comprehensive Feedback**: Structured strengths, improvements, and suggestions after each session
+- **Progress Tracking**: Visualize improvement over time with streak tracking and session history
 
-- **App entry & routes**: [src/app](src/app)
-- **Server helpers**: [src/lib](src/lib)
-- **UI components**: [src/components]
-- **Hooks**: [src/hooks]
-- **Prisma client**: [src/lib/prisma.ts](src/lib/prisma.ts)
-- **Supabase helpers**: [src/lib/supabase](src/lib/supabase)
+### User Experience
 
-## Environment variables
+- **Resume Integration**: Upload your resume for personalized, context-aware interviews
+- **Session History**: Review past sessions, transcripts, and performance metrics
+- **Responsive Design**: Clean, dark-themed UI built with Tailwind CSS
+- **Quick Setup**: Get started in under 30 seconds with Supabase authentication
 
-Create a `.env.local` in the project root and set the variables your chosen providers require. Common variables used in the codebase include (confirm exact keys by inspecting the files linked above):
+## Tech Stack
 
-- **DATABASE_URL**: connection string for Prisma/Postgres
-- **NEXTAUTH_URL**: app base URL for auth callbacks
-- **NEXTAUTH_SECRET**: random secret for NextAuth (if used)
-- **SUPABASE_URL** and **SUPABASE_ANON_KEY**: for Supabase client (and **SUPABASE_SERVICE_ROLE_KEY** for server operations)
-- **OPENAI_API_KEY** (or other AI provider keys): for transcription / LLM usage if integrated
-- **TTS_API_KEY** / **SPEECH_KEY**: for any external text-to-speech provider you configure
+| Layer                  | Technology                                                |
+| ---------------------- | --------------------------------------------------------- |
+| **Frontend**           | Next.js 14 (App Router), React 18, Tailwind CSS           |
+| **UI Components**      | shadcn/ui, Radix UI primitives                            |
+| **Database**           | PostgreSQL (Supabase) with Prisma ORM                     |
+| **Authentication**     | Supabase Auth                                             |
+| **Storage**            | Supabase Storage (resume PDFs)                            |
+| **AI Services (Groq)** | Whisper Large V3 (STT), PlayAI (TTS), Llama 3.1 70B (LLM) |
+| **Deployment**         | Vercel                                                    |
+| **Language**           | TypeScript                                                |
 
-Note: exact env names and usage are referenced in [src/lib](src/lib) and [src/app/api](src/app/api). Open those files if you need to map variables to specific providers.
+## Architecture
 
-## Local development
-
-1. Install dependencies:
-
-```bash
-npm install
-# or
-pnpm install
+```
+┌─────────────────────────────────────────────────────────────────────────┐
+│                         INTERVIEWGYM ARCHITECTURE                        │
+├─────────────────────────────────────────────────────────────────────────┤
+│                                                                          │
+│   ┌─────────────────────────────────────────────────────────────────┐   │
+│   │                      CLIENT (Browser)                           │   │
+│   ├─────────────────────────────────────────────────────────────────┤   │
+│   │   Next.js Frontend  │  MediaRecorder  │  Audio Playback        │   │
+│   └─────────────────────────────────┬───────────────────────────────┘   │
+│                                     │ HTTPS                              │
+│                                     ▼                                    │
+│   ┌─────────────────────────────────────────────────────────────────┐   │
+│   │                  VERCEL (Next.js API Routes)                    │   │
+│   ├─────────────────────────────────────────────────────────────────┤   │
+│   │   /api/auth  │  /api/session  │  /api/voice  │  /api/interview │   │
+│   └────────┬──────────────────┬──────────────────┬─────────────────┘   │
+│            │                  │                  │                      │
+│            ▼                  ▼                  ▼                      │
+│   ┌─────────────┐    ┌─────────────┐    ┌─────────────────┐            │
+│   │   SUPABASE  │    │    GROQ     │    │ SUPABASE STORAGE│            │
+│   ├─────────────┤    ├─────────────┤    ├─────────────────┤            │
+│   │  Postgres   │    │ Whisper STT │    │  Resume PDFs    │            │
+│   │  Database   │    │ PlayAI TTS  │    │                 │            │
+│   │  Auth       │    │ Llama 3.1   │    │                 │            │
+│   └─────────────┘    └─────────────┘    └─────────────────┘            │
+│                                                                          │
+└─────────────────────────────────────────────────────────────────────────┘
 ```
 
-2. Prepare the database (using Prisma):
+## Database Schema
 
-```bash
-# create/migrate your database (example for Postgres)
-npx prisma migrate dev --name init
-npx prisma generate
+```
+┌──────────┐       ┌──────────────┐       ┌────────────┐
+│   User   │──────<│   Session    │──────<│  Message   │
+└──────────┘  1:N  └──────────────┘  1:N  └────────────┘
+     │                   │                    │
+     │                   │                    │
+     │              ┌────┴────┐               │
+     │              │         │               │
+     │              ▼         ▼               │
+     │        ┌──────────┐ ┌──────────────┐   │
+     │        │ Feedback │ │   Metrics    │   │
+     │        └──────────┘ └──────────────┘   │
+     │                                           │
+     │ 1:1 (optional)                            │
+     ▼                                           │
+┌──────────┐                                     │
+│  Resume  │                                     │
+└──────────┘                                     │
 ```
 
-3. Run the dev server:
+## Project Structure
 
-```bash
-npm run dev
-# or
-pnpm dev
+```
+interviewgym/
+├── src/
+│   ├── app/                    # Next.js App Router
+│   │   ├── (auth)/            # Authentication routes
+│   │   ├── (dashboard)/       # Protected dashboard routes
+│   │   │   ├── session/       # Interview session pages
+│   │   │   ├── history/       # Session history
+│   │   │   └── settings/      # User settings
+│   │   └── api/               # API routes
+│   ├── components/
+│   │   ├── ui/                # shadcn/ui components
+│   │   ├── session/           # Interview session components
+│   │   ├── feedback/          # Feedback display components
+│   │   └── dashboard/         # Dashboard components
+│   ├── lib/
+│   │   ├── supabase/          # Supabase client & middleware
+│   │   ├── groq/              # AI service integrations
+│   │   ├── prompts/           # LLM system prompts
+│   │   ├── questions/         # Interview question banks
+│   │   └── utils/             # Utility functions
+│   └── hooks/                 # Custom React hooks
+├── prisma/
+│   └── schema.prisma          # Database schema
+├── docs/                      # Documentation
+└── public/                    # Static assets
 ```
 
-4. Open http://localhost:3000
+## Getting Started
 
-## Database & Prisma
+### Prerequisites
 
-- Prisma schema is at `prisma/schema.prisma`. Use `DATABASE_URL` to point to your database.
-- Common commands:
+- Node.js 18+
+- npm, yarn, or pnpm
+- Supabase account (for database & auth)
+- Groq API key (for AI services)
+
+### Installation
+
+1. **Clone the repository**
+
+   ```bash
+   git clone https://github.com/arxel2468/interviewgym.git
+   cd interviewgym
+   ```
+
+2. **Install dependencies**
+
+   ```bash
+   npm install
+   # or
+   pnpm install
+   ```
+
+3. **Set up environment variables**
+
+   ```bash
+   cp .env.example .env.local
+   ```
+
+   Configure the required variables in `.env.local` (see below)
+
+4. **Set up the database**
+
+   ```bash
+   npx prisma migrate dev --name init
+   npx prisma generate
+   ```
+
+5. **Run the development server**
+
+   ```bash
+   npm run dev
+   ```
+
+6. **Open your browser**
+   Navigate to [http://localhost:3000](http://localhost:3000)
+
+## Environment Variables
+
+Create a `.env.local` file in the project root with the following variables:
 
 ```bash
-npx prisma migrate dev
-npx prisma studio
+# Supabase
+NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key
+SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
+
+# Database (Supabase connection pooler)
+DATABASE_URL="postgresql://user:password@host:6543/database?pgbouncer=true"
+DIRECT_URL="postgresql://user:password@host:5432/database"
+
+# Groq AI
+GROQ_API_KEY=your-groq-api-key
+
+# Application
+NEXT_PUBLIC_APP_URL=http://localhost:3000
 ```
 
-## Supabase
+### Obtaining API Keys
 
-- The repository contains a Supabase client and middleware in [src/lib/supabase](src/lib/supabase) and [src/lib/supabase/server.ts]. Configure `SUPABASE_URL` and `SUPABASE_ANON_KEY` (and service role key for server tasks).
+1. **Supabase**: Create a new project at [supabase.com](https://supabase.com)
+   - Go to Settings > API to get your project URL and anon key
+   - Generate a service role key for server operations
 
-## AI, TTS, and Transcription providers
+2. **Groq**: Get your API key at [console.groq.com](https://console.groq.com)
+   - Groq provides free tier access to Whisper, PlayAI, and Llama models
 
-- This app is built to be provider-agnostic: server API routes perform transcription and synthesis via helper modules in [src/lib/groq] and [src/lib]. Add provider API keys to `.env.local` and update the relevant helper to match the provider's SDK/API.
-- Check these entry points:
-	- [src/app/api/voice/synthesize/route.ts](src/app/api/voice/synthesize/route.ts)
-	- [src/app/api/voice/transcribe/route.ts](src/app/api/voice/transcribe/route.ts)
-	- [src/app/api/interview/respond/route.ts](src/app/api/interview/respond/route.ts)
+## API Endpoints
 
-For example, to enable OpenAI-based transcription (Whisper) or text-to-speech, set `OPENAI_API_KEY` and implement the provider in the helper modules.
+### Authentication
 
-## Running tests / linting / formatting
+| Endpoint             | Method | Description            |
+| -------------------- | ------ | ---------------------- |
+| `/api/auth/callback` | GET    | OAuth callback handler |
+| `/api/auth/logout`   | POST   | Clear user session     |
 
-- If this project includes tests or linting scripts, run them via `npm run` scripts. Example:
+### User Management
 
-```bash
-npm run lint
-npm run format
-npm test
-```
+| Endpoint               | Method    | Description                |
+| ---------------------- | --------- | -------------------------- |
+| `/api/user/profile`    | GET/PATCH | Get or update user profile |
+| `/api/user/onboarding` | POST      | Complete onboarding flow   |
+| `/api/user/progress`   | GET       | Get progress and stats     |
 
-## Deployment
+### Resume
 
-- The app targets platforms that support Next.js (Vercel, Netlify, etc.). Ensure env variables are set in the hosting platform.
-- Build command:
+| Endpoint      | Method | Description             |
+| ------------- | ------ | ----------------------- |
+| `/api/resume` | POST   | Upload and parse resume |
+| `/api/resume` | GET    | Get parsed resume data  |
+| `/api/resume` | DELETE | Remove resume           |
 
-```bash
-npm run build
-npm start
-```
+### Sessions
 
-## Where to look next (important files)
+| Endpoint                     | Method | Description                  |
+| ---------------------------- | ------ | ---------------------------- |
+| `/api/session`               | POST   | Create new interview session |
+| `/api/session`               | GET    | Get session history          |
+| `/api/session/[id]`          | GET    | Get session details          |
+| `/api/session/[id]/complete` | POST   | Mark session complete        |
 
-- App routes and pages: [src/app](src/app)
-- API routes: [src/app/api](src/app/api)
-- Prisma client: [src/lib/prisma.ts](src/lib/prisma.ts)
-- Supabase helpers: [src/lib/supabase](src/lib/supabase)
-- Audio hooks: [src/hooks/use-audio-recorder.ts](src/hooks/use-audio-recorder.ts) and [src/hooks/use-audio-player.ts](src/hooks/use-audio-player.ts)
+### Voice
+
+| Endpoint                | Method | Description              |
+| ----------------------- | ------ | ------------------------ |
+| `/api/voice/transcribe` | POST   | Speech-to-text (Whisper) |
+| `/api/voice/synthesize` | POST   | Text-to-speech (PlayAI)  |
+
+### Interview
+
+| Endpoint                 | Method | Description                      |
+| ------------------------ | ------ | -------------------------------- |
+| `/api/interview/respond` | POST   | Generate AI interviewer response |
+
+### Feedback
+
+| Endpoint                 | Method | Description               |
+| ------------------------ | ------ | ------------------------- |
+| `/api/feedback/generate` | POST   | Generate session feedback |
+
+## Interview Types
+
+InterviewGym supports multiple interview formats:
+
+| Type                 | Description                                           |
+| -------------------- | ----------------------------------------------------- |
+| **Behavioral**       | STAR method questions about past experiences          |
+| **HR Screen**        | Standard HR questions about background and motivation |
+| **Technical Verbal** | Technical questions requiring spoken explanations     |
+
+### Difficulty Levels
+
+| Level        | Use Case                                    |
+| ------------ | ------------------------------------------- |
+| **Warmup**   | Building confidence, beginners              |
+| **Standard** | Regular interview practice                  |
+| **Intense**  | High-pressure simulation, advanced practice |
 
 ## Contributing
 
-- Create feature branches, run the dev server locally, and open a PR with a description of your changes.
+We welcome contributions! Please see our [Contributing Guide](docs/CONTRIBUTING.md) for details.
 
+1. Fork the repository
+2. Create a feature branch (`git checkout -b feature/amazing-feature`)
+3. Commit your changes (`git commit -m 'Add amazing feature'`)
+4. Push to the branch (`git push origin feature/amazing-feature`)
+5. Open a Pull Request
+
+## License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+## Support
+
+- **Documentation**: See the [docs](docs/) folder for detailed architecture and API documentation
+- **Issues**: Report bugs via GitHub Issues
+- **Discussions**: Use GitHub Discussions for questions and ideas
+
+---
+
+Built with Next.js, Supabase, and Groq
