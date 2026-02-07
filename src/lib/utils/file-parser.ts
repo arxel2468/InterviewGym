@@ -11,7 +11,11 @@ export async function extractTextFromFile(file: File): Promise<string> {
   }
 
   if (file.type === 'application/pdf') {
-    return extractFromPDF(arrayBuffer)
+    // PDF parsing is unreliable in Next.js server environment
+    // Direct users to paste text instead
+    throw new Error(
+      'PDF parsing is not supported. Please copy your resume text and use "Paste Resume Text" instead.'
+    )
   }
 
   if (
@@ -21,52 +25,7 @@ export async function extractTextFromFile(file: File): Promise<string> {
     return extractFromDOCX(buffer)
   }
 
-  throw new Error('Unsupported file type. Please use PDF, DOCX, or TXT.')
-}
-
-async function extractFromPDF(arrayBuffer: ArrayBuffer): Promise<string> {
-  try {
-    // Use pdfjs-dist with worker disabled for server-side
-    const pdfjsLib = await import('pdfjs-dist')
-
-    // Disable worker for Node.js environment
-    pdfjsLib.GlobalWorkerOptions.workerSrc = ''
-
-    const loadingTask = pdfjsLib.getDocument({
-      data: new Uint8Array(arrayBuffer),
-      useSystemFonts: true,
-    })
-
-    const pdf = await loadingTask.promise
-    const textParts: string[] = []
-
-    for (let i = 1; i <= pdf.numPages; i++) {
-      const page = await pdf.getPage(i)
-      const textContent = await page.getTextContent()
-      const pageText = textContent.items
-        .map((item: any) => item.str)
-        .join(' ')
-      textParts.push(pageText)
-    }
-
-    const text = textParts
-      .join('\n')
-      .replace(/\s+/g, ' ')
-      .trim()
-
-    console.log('PDF extracted, pages:', pdf.numPages, 'chars:', text.length)
-
-    if (text.length < 50) {
-      throw new Error('Could not extract meaningful text from PDF')
-    }
-
-    return text
-  } catch (error: any) {
-    console.error('PDF parsing error:', error)
-    throw new Error(
-      'Could not parse PDF. The file may be scanned/image-based. Please paste the text instead.'
-    )
-  }
+  throw new Error('Unsupported file type. Please use DOCX, TXT, or paste your resume text.')
 }
 
 async function extractFromDOCX(buffer: Buffer): Promise<string> {

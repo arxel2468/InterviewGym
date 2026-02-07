@@ -251,12 +251,12 @@ export function ResumeUpload({ currentResume }: ResumeUploadProps) {
           <div className="border-2 border-dashed border-zinc-700 rounded-lg p-6 text-center">
             <Upload className="w-8 h-8 text-zinc-500 mx-auto mb-3" />
             <p className="text-zinc-300 text-sm mb-1">Add your resume</p>
-            <p className="text-zinc-500 text-xs mb-4">Paste text works best • PDF upload may be limited</p>
+            <p className="text-zinc-500 text-xs mb-4">Paste text works best • Supports DOCX and TXT files</p>
 
             <input
               ref={fileInputRef}
               type="file"
-              accept=".pdf,.doc,.docx,.txt"
+              accept=".doc,.docx,.txt"
               onChange={handleFileSelect}
               className="hidden"
               disabled={isUploading}
