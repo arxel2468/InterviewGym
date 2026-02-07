@@ -110,6 +110,28 @@ export function InterviewSession({
     window.addEventListener('beforeunload', handleBeforeUnload)
     return () => window.removeEventListener('beforeunload', handleBeforeUnload)
   }, [state, messages.length])
+    // Keyboard shortcut: Space to start/stop recording
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Ignore if typing in an input
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) {
+        return
+      }
+
+      if (e.code === 'Space' && !e.repeat) {
+        e.preventDefault()
+
+        if (state === 'waiting_for_candidate' && !isRecording) {
+          handleStartRecording()
+        } else if (isRecording) {
+          handleStopRecording()
+        }
+      }
+    }
+
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [state, isRecording])
 
   const getAtmosphericMessage = () => {
     return ATMOSPHERIC_MESSAGES[Math.floor(Math.random() * ATMOSPHERIC_MESSAGES.length)]
@@ -243,9 +265,15 @@ export function InterviewSession({
 
   const handleStartRecording = async () => {
     setError(null)
-    recordingStartTime.current = Date.now()
-    await startRecording()
-    setState('candidate_speaking')
+    try {
+      recordingStartTime.current = Date.now()
+      await startRecording()
+      setState('candidate_speaking')
+    } catch (err: any) {
+      console.error('Recording start failed:', err)
+      setError(err.message || 'Could not access microphone. Please check permissions.')
+      setState('waiting_for_candidate')
+    }
   }
 
   const handleStopRecording = async () => {
@@ -355,7 +383,7 @@ export function InterviewSession({
     }
   }
 
-  const endInterview = async (finalMessages: Message[]) => {
+  const endInterview = async (finalMessages: Message[], retryCount = 0) => {
     setState('ending')
     setAtmosphericMessage('Generating your feedback...')
 
@@ -383,7 +411,16 @@ export function InterviewSession({
 
     } catch (err: any) {
       console.error('End interview error:', err)
-      setError(err.message)
+
+      // Retry up to 2 times
+      if (retryCount < 2) {
+        console.log(`Retrying session completion (attempt ${retryCount + 2})...`)
+        setAtmosphericMessage('Saving your session... retrying...')
+        await new Promise(resolve => setTimeout(resolve, 1500))
+        return endInterview(finalMessages, retryCount + 1)
+      }
+
+      setError('Failed to save session. Your responses were recorded - please try refreshing.')
       setState('error')
     }
   }
@@ -537,6 +574,7 @@ export function InterviewSession({
                 <Mic className="w-5 h-5 mr-2" />
                 Start Speaking
               </Button>
+              <p className="text-xs text-zinc-500 mt-2">or press Space</p>
             )}
 
             {isRecording && (
