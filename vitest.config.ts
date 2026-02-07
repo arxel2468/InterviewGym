@@ -11,11 +11,8 @@ export default defineConfig({
     include: ['src/**/*.{test,spec}.{js,ts}'],
     exclude: ['node_modules', '.next'],
     testTimeout: 10000,
-    pool: 'threads',
-    poolOptions: {
-      threads: {
-        singleThread: true,
-      },
+    sequence: {
+      concurrent: false,
     },
     coverage: {
       provider: 'v8',

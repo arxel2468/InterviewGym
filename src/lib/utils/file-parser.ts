@@ -11,7 +11,7 @@ export async function extractTextFromFile(file: File): Promise<string> {
   }
 
   if (file.type === 'application/pdf') {
-    return extractFromPDF(buffer)
+    return extractFromPDF(arrayBuffer)
   }
 
   if (
@@ -24,17 +24,37 @@ export async function extractTextFromFile(file: File): Promise<string> {
   throw new Error('Unsupported file type. Please use PDF, DOCX, or TXT.')
 }
 
-async function extractFromPDF(buffer: Buffer): Promise<string> {
+async function extractFromPDF(arrayBuffer: ArrayBuffer): Promise<string> {
   try {
-    // Dynamic import to avoid ESM/CJS issues
-    const pdfParse = await import('pdf-parse').then(m => m.default || m)
+    // Use pdfjs-dist with worker disabled for server-side
+    const pdfjsLib = await import('pdfjs-dist')
 
-    const data = await pdfParse(buffer)
-    const text = data.text
+    // Disable worker for Node.js environment
+    pdfjsLib.GlobalWorkerOptions.workerSrc = ''
+
+    const loadingTask = pdfjsLib.getDocument({
+      data: new Uint8Array(arrayBuffer),
+      useSystemFonts: true,
+    })
+
+    const pdf = await loadingTask.promise
+    const textParts: string[] = []
+
+    for (let i = 1; i <= pdf.numPages; i++) {
+      const page = await pdf.getPage(i)
+      const textContent = await page.getTextContent()
+      const pageText = textContent.items
+        .map((item: any) => item.str)
+        .join(' ')
+      textParts.push(pageText)
+    }
+
+    const text = textParts
+      .join('\n')
       .replace(/\s+/g, ' ')
       .trim()
 
-    console.log('PDF extracted, pages:', data.numpages, 'chars:', text.length)
+    console.log('PDF extracted, pages:', pdf.numPages, 'chars:', text.length)
 
     if (text.length < 50) {
       throw new Error('Could not extract meaningful text from PDF')
@@ -43,12 +63,6 @@ async function extractFromPDF(buffer: Buffer): Promise<string> {
     return text
   } catch (error: any) {
     console.error('PDF parsing error:', error)
-
-    // Provide helpful error message
-    if (error.message?.includes('extract meaningful text')) {
-      throw error
-    }
-
     throw new Error(
       'Could not parse PDF. The file may be scanned/image-based. Please paste the text instead.'
     )
