@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { useAudioRecorder } from '@/hooks/use-audio-recorder'
 import { speakText, stopSpeaking, isBrowserTTSSupported } from '@/lib/browser-tts'
+import { INTERVIEW_CONFIGS, InterviewType } from '@/lib/questions'
 import {
   Mic,
   Square,
@@ -67,7 +68,7 @@ export function InterviewSession({
   const currentAudio = useRef<HTMLAudioElement | null>(null)
 
   const candidateMessageCount = messages.filter(m => m.role === 'candidate').length
-  const estimatedTotal = 6 // or get from interview type config
+  const estimatedTotal = INTERVIEW_CONFIGS[interviewType as InterviewType]?.questionCount || 6
   const progress = Math.min(100, (candidateMessageCount / estimatedTotal) * 100)
 
   const {
@@ -308,6 +309,7 @@ export function InterviewSession({
           sessionId,
           difficulty,
           interviewType,
+          targetRole,
           conversationHistory: updatedMessages.map(m => ({
             role: m.role,
             content: m.content,

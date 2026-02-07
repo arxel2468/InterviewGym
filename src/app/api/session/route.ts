@@ -1,7 +1,9 @@
+// src/app/api/session/route.ts
+
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { prisma } from '@/lib/prisma'
-import { checkRateLimit } from '@lib/rate-limit'
+import { checkRateLimit } from '@/lib/rate-limit'
 import { z } from 'zod'
 
 const createSessionSchema = z.object({

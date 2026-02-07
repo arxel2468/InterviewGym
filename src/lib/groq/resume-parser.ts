@@ -1,5 +1,8 @@
+// src/lib/groq/resume-parser.ts
+
 import { getGroqClient } from './client'
 import { executeWithFallback } from './fallback'
+import { sanitizeForAI } from '@/lib/utils/sanitize'
 
 export type ParsedResume = {
   name?: string
@@ -35,10 +38,13 @@ export async function parseResume(rawText: string): Promise<ParsedResume> {
     }
   }
 
+  // Sanitize input
+  const sanitizedText = sanitizeForAI(rawText, 10000)
+
   const groq = getGroqClient()
 
   // Take first 8000 chars to stay within token limits
-  const textToProcess = rawText.substring(0, 8000)
+  const textToProcess = sanitizedText.substring(0, 8000)
 
   const prompt = `You are a resume parser. Extract structured information from this resume text.
 

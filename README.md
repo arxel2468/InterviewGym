@@ -1,6 +1,15 @@
 # InterviewGym
 
-InterviewGym is an AI-powered voice-based interview practice platform built with Next.js. It helps candidates prepare for job interviews through realistic mock sessions with an intelligent interviewer that asks real questions, pushes back on weak answers, and provides actionable feedback.
+InterviewGym is an AI-powered, voice-first interview practice platform built with Next.js. It helps candidates prepare for job interviews through realistic mock sessions with an intelligent interviewer that asks real questions, challenges weak answers, and delivers actionable feedback.
+
+## Quick Links
+
+- [Getting Started](#getting-started)
+- [Environment Variables](#environment-variables)
+- [Scripts](#scripts)
+- [Architecture](#architecture)
+- [API Endpoints](#api-endpoints)
+- [Contributing](#contributing)
 
 ## Features
 
@@ -41,85 +50,69 @@ InterviewGym is an AI-powered voice-based interview practice platform built with
 ## Architecture
 
 ```
-┌─────────────────────────────────────────────────────────────────────────┐
-│                         INTERVIEWGYM ARCHITECTURE                        │
-├─────────────────────────────────────────────────────────────────────────┤
-│                                                                          │
-│   ┌─────────────────────────────────────────────────────────────────┐   │
-│   │                      CLIENT (Browser)                           │   │
-│   ├─────────────────────────────────────────────────────────────────┤   │
-│   │   Next.js Frontend  │  MediaRecorder  │  Audio Playback        │   │
-│   └─────────────────────────────────┬───────────────────────────────┘   │
-│                                     │ HTTPS                              │
-│                                     ▼                                    │
-│   ┌─────────────────────────────────────────────────────────────────┐   │
-│   │                  VERCEL (Next.js API Routes)                    │   │
-│   ├─────────────────────────────────────────────────────────────────┤   │
-│   │   /api/auth  │  /api/session  │  /api/voice  │  /api/interview │   │
-│   └────────┬──────────────────┬──────────────────┬─────────────────┘   │
-│            │                  │                  │                      │
-│            ▼                  ▼                  ▼                      │
-│   ┌─────────────┐    ┌─────────────┐    ┌─────────────────┐            │
-│   │   SUPABASE  │    │    GROQ     │    │ SUPABASE STORAGE│            │
-│   ├─────────────┤    ├─────────────┤    ├─────────────────┤            │
-│   │  Postgres   │    │ Whisper STT │    │  Resume PDFs    │            │
-│   │  Database   │    │ PlayAI TTS  │    │                 │            │
-│   │  Auth       │    │ Llama 3.1   │    │                 │            │
-│   └─────────────┘    └─────────────┘    └─────────────────┘            │
-│                                                                          │
-└─────────────────────────────────────────────────────────────────────────┘
++--------------------------------------------------------------------------------+
+|                             INTERVIEWGYM ARCHITECTURE                          |
++--------------------------------------------------------------------------------+
+|                                                                                |
+|  +--------------------------- CLIENT (Browser) -----------------------------+ |
+|  | Next.js Frontend | MediaRecorder | Audio Playback                         | |
+|  +--------------------------------------------------------------------------+ |
+|                             | HTTPS                                           |
+|                             v                                                 |
+|  +------------------------ VERCEL (API Routes) -----------------------------+ |
+|  | /api/auth | /api/session | /api/voice | /api/interview                    | |
+|  +-------------------+-------------------+-------------------+--------------+ |
+|                      |                   |                   |                |
+|                      v                   v                   v                |
+|  +-----------+     +-----------+     +---------------------+                   |
+|  | SUPABASE  |     |   GROQ    |     |  SUPABASE STORAGE   |                   |
+|  | Postgres  |     | Whisper   |     | Resume PDFs         |                   |
+|  | Auth      |     | PlayAI    |     |                     |                   |
+|  |           |     | Llama 3.1 |     |                     |                   |
+|  +-----------+     +-----------+     +---------------------+                   |
+|                                                                                |
++--------------------------------------------------------------------------------+
 ```
 
 ## Database Schema
 
 ```
-┌──────────┐       ┌──────────────┐       ┌────────────┐
-│   User   │──────<│   Session    │──────<│  Message   │
-└──────────┘  1:N  └──────────────┘  1:N  └────────────┘
-     │                   │                    │
-     │                   │                    │
-     │              ┌────┴────┐               │
-     │              │         │               │
-     │              ▼         ▼               │
-     │        ┌──────────┐ ┌──────────────┐   │
-     │        │ Feedback │ │   Metrics    │   │
-     │        └──────────┘ └──────────────┘   │
-     │                                           │
-     │ 1:1 (optional)                            │
-     ▼                                           │
-┌──────────┐                                     │
-│  Resume  │                                     │
-└──────────┘                                     │
+User 1:N Session 1:N Message
+ |            | 
+ |            +-- 1:1 Feedback (optional)
+ |            +-- 1:1 Metrics
+ |
+ +-- 1:1 Resume (optional)
 ```
 
 ## Project Structure
 
 ```
 interviewgym/
-├── src/
-│   ├── app/                    # Next.js App Router
-│   │   ├── (auth)/            # Authentication routes
-│   │   ├── (dashboard)/       # Protected dashboard routes
-│   │   │   ├── session/       # Interview session pages
-│   │   │   ├── history/       # Session history
-│   │   │   └── settings/      # User settings
-│   │   └── api/               # API routes
-│   ├── components/
-│   │   ├── ui/                # shadcn/ui components
-│   │   ├── session/           # Interview session components
-│   │   ├── feedback/          # Feedback display components
-│   │   └── dashboard/         # Dashboard components
-│   ├── lib/
-│   │   ├── supabase/          # Supabase client & middleware
-│   │   ├── groq/              # AI service integrations
-│   │   ├── prompts/           # LLM system prompts
-│   │   ├── questions/         # Interview question banks
-│   │   └── utils/             # Utility functions
-│   └── hooks/                 # Custom React hooks
-├── prisma/
-│   └── schema.prisma          # Database schema
-├── docs/                      # Documentation
-└── public/                    # Static assets
+|-- src/
+|   |-- app/                    # Next.js App Router
+|   |   |-- (auth)/             # Authentication routes
+|   |   |-- (dashboard)/        # Protected dashboard routes
+|   |   |   |-- session/        # Interview session pages
+|   |   |   |-- history/        # Session history
+|   |   |   `-- settings/       # User settings
+|   |   `-- api/                # API routes
+|   |-- components/
+|   |   |-- ui/                 # shadcn/ui components
+|   |   |-- session/            # Interview session components
+|   |   |-- feedback/           # Feedback display components
+|   |   `-- dashboard/          # Dashboard components
+|   |-- lib/
+|   |   |-- supabase/           # Supabase client & middleware
+|   |   |-- groq/               # AI service integrations
+|   |   |-- prompts/            # LLM system prompts
+|   |   |-- questions/          # Interview question banks
+|   |   |-- utils/              # Utility functions
+|   `-- hooks/                  # Custom React hooks
+|-- prisma/
+|   `-- schema.prisma           # Database schema
+|-- docs/                       # Documentation
+`-- public/                     # Static assets
 ```
 
 ## Getting Started
@@ -170,7 +163,12 @@ interviewgym/
    ```
 
 6. **Open your browser**
-   Navigate to [http://localhost:3000](http://localhost:3000)
+   Navigate to `http://localhost:3000`
+### Local Development Notes
+
+- The app expects Supabase Auth enabled and a Postgres database configured.
+- The `DATABASE_URL` should use the Supabase connection pooler and `DIRECT_URL` should use the direct connection.
+- If you update the Prisma schema, rerun `npx prisma generate`.
 
 ## Environment Variables
 
@@ -193,14 +191,23 @@ GROQ_API_KEY=your-groq-api-key
 NEXT_PUBLIC_APP_URL=http://localhost:3000
 ```
 
+### Variable Reference
+
+| Variable | Required | Purpose |
+| --- | --- | --- |
+| `NEXT_PUBLIC_SUPABASE_URL` | Yes | Supabase project URL |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Yes | Client-side auth key |
+| `SUPABASE_SERVICE_ROLE_KEY` | Yes | Server-side admin key |
+| `DATABASE_URL` | Yes | Prisma pooled connection |
+| `DIRECT_URL` | Yes | Prisma direct connection |
+| `GROQ_API_KEY` | Yes | Groq API access |
+| `NEXT_PUBLIC_APP_URL` | Yes | Base app URL for auth |
+
 ### Obtaining API Keys
 
-1. **Supabase**: Create a new project at [supabase.com](https://supabase.com)
-   - Go to Settings > API to get your project URL and anon key
-   - Generate a service role key for server operations
-
-2. **Groq**: Get your API key at [console.groq.com](https://console.groq.com)
-   - Groq provides free tier access to Whisper, PlayAI, and Llama models
+1. **Supabase**: Create a new project at `https://supabase.com`
+2. **Supabase keys**: Go to Settings > API to get your project URL, anon key, and service role key
+3. **Groq**: Get your API key at `https://console.groq.com`
 
 ## API Endpoints
 
@@ -273,6 +280,16 @@ InterviewGym supports multiple interview formats:
 | **Standard** | Regular interview practice                  |
 | **Intense**  | High-pressure simulation, advanced practice |
 
+## Scripts
+
+| Script | Description |
+| --- | --- |
+| `npm run dev` | Start the development server |
+| `npm run build` | Create a production build |
+| `npm run start` | Run the production server |
+| `npm run lint` | Lint the codebase |
+| `npx prisma studio` | Explore the database |
+
 ## Contributing
 
 We welcome contributions! Please see our [Contributing Guide](docs/CONTRIBUTING.md) for details.
@@ -296,3 +313,5 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 ---
 
 Built with Next.js, Supabase, and Groq
+
+
