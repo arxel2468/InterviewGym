@@ -1,4 +1,4 @@
-import pdf from 'pdf-parse'
+import * as pdfParse from 'pdf-parse'
 import mammoth from 'mammoth'
 
 export async function extractTextFromFile(file: File): Promise<string> {
@@ -25,6 +25,7 @@ export async function extractTextFromFile(file: File): Promise<string> {
 
 async function extractFromPDF(buffer: Buffer): Promise<string> {
   try {
+    const pdf = (pdfParse as any).default || pdfParse
     const data = await pdf(buffer)
     const text = data.text
       .replace(/\s+/g, ' ')
