@@ -16,8 +16,13 @@ prisma/migrations
 # Debug
 *.log
 
-# Coverage
-coverage/
-
 # Husky
 .husky/_
+# Sentry
+.sentryclirc
+
+# Local env files
+.env*.local
+
+# Coverage
+coverage/
