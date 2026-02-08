@@ -19,7 +19,7 @@ export type TTSFallbackLevel = 'primary' | 'secondary' | 'browser' | 'failed'
 
 // Available voices for Orpheus model
 const _VOICES = ['autumn', 'diana', 'hannah', 'austin', 'daniel', 'troy'] as const
-type Voice = typeof VOICES[number]
+type Voice = typeof _VOICES[number]
 
 export async function synthesizeSpeech(
   text: string,
