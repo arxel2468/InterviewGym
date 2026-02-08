@@ -18,7 +18,7 @@ export type SynthesisError = {
 export type TTSFallbackLevel = 'primary' | 'secondary' | 'browser' | 'failed'
 
 // Available voices for Orpheus model
-const VOICES = ['autumn', 'diana', 'hannah', 'austin', 'daniel', 'troy'] as const
+const _VOICES = ['autumn', 'diana', 'hannah', 'austin', 'daniel', 'troy'] as const
 type Voice = typeof VOICES[number]
 
 export async function synthesizeSpeech(

@@ -19,20 +19,6 @@ export function LoginForm() {
     return `${baseUrl}/auth/callback`
   }
 
-  const handleGoogleLogin = async () => {
-    setLoading(true)
-    const { error } = await supabase.auth.signInWithOAuth({
-      provider: 'google',
-      options: {
-        redirectTo: getRedirectUrl(),
-      },
-    })
-    if (error) {
-      toast.error('Failed to connect with Google')
-      setLoading(false)
-    }
-  }
-
   const handleGitHubLogin = async () => {
     setLoading(true)
     const { error } = await supabase.auth.signInWithOAuth({

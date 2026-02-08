@@ -3,7 +3,7 @@
 import { useEffect } from 'react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
-import { AlertTriangle, RefreshCw, Home, PhoneOff } from 'lucide-react'
+import { AlertTriangle, RefreshCw, Home } from 'lucide-react'
 import Link from 'next/link'
 
 export default function SessionError({

@@ -15,10 +15,9 @@ import {
   Users,
   Boxes,
   ArrowRight,
-  Clock,
   HelpCircle
 } from 'lucide-react'
-import { INTERVIEW_CONFIGS, ROLE_LABELS, InterviewType, TargetRole } from '@/lib/questions'
+import { INTERVIEW_CONFIGS, InterviewType, TargetRole } from '@/lib/questions'
 
 type Difficulty = 'warmup' | 'standard' | 'intense'
 

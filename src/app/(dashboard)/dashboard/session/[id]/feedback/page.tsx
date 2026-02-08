@@ -4,7 +4,7 @@ import { notFound, redirect } from 'next/navigation'
 import { FeedbackView } from '@/components/session/feedback-view'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { AlertTriangle, RefreshCw, Home } from 'lucide-react'
+import { AlertTriangle, Home } from 'lucide-react'
 import Link from 'next/link'
 
 interface PageProps {

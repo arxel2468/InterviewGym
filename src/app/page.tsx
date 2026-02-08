@@ -5,7 +5,6 @@ import {
   MessageSquare, 
   BarChart3, 
   ArrowRight,
-  CheckCircle,
   Zap,
   Shield,
   Clock,

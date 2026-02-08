@@ -1,4 +1,4 @@
-import { Question, TargetRole } from './index'
+import { Question } from './index'
 
 export const SYSTEM_DESIGN_QUESTIONS: Question[] = [
   {
