@@ -15,3 +15,9 @@ prisma/migrations
 
 # Debug
 *.log
+
+# Coverage
+coverage/
+
+# Husky
+.husky/_

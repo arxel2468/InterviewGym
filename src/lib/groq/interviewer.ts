@@ -1,584 +1,489 @@
-// src/components/session/interview-session.tsx
-'use client'
-
-import { useState, useEffect, useRef } from 'react'
-import { useRouter } from 'next/navigation'
-import { Button } from '@/components/ui/button'
-import { Card } from '@/components/ui/card'
-import { useAudioRecorder } from '@/hooks/use-audio-recorder'
-import { speakText, stopSpeaking, isBrowserTTSSupported } from '@/lib/browser-tts'
-import { INTERVIEW_CONFIGS, InterviewType } from '@/lib/questions'
 import {
-  Mic,
-  Square,
-  Loader2,
-  Volume2,
-  VolumeX,
-  MessageSquare,
-  User,
-  AlertTriangle,
-  PhoneOff
-} from 'lucide-react'
+  selectQuestionsForSession,
+  BEHAVIORAL_QUESTIONS
+} from '@/lib/questions/behavioral'
+import { getTechnicalQuestionsForRole, TECHNICAL_QUESTIONS } from '@/lib/questions/technical'
+import { getHRScreenQuestions, HR_SCREEN_QUESTIONS } from '@/lib/questions/hr-screen'
+import { getSystemDesignQuestions, SYSTEM_DESIGN_QUESTIONS } from '@/lib/questions/system-design'
+import { TargetRole, InterviewType, Question } from '@/lib/questions'
+import { getGroqClient } from './client'
+import { executeWithFallback, getDegradedMessage } from './fallback'
+import { getPersona, InterviewerPersona } from '@/lib/prompts/interviewer-personas'
 
-type Message = {
+export type Difficulty = 'warmup' | 'standard' | 'intense'
+
+export type ConversationMessage = {
   role: 'interviewer' | 'candidate'
   content: string
-  timestamp: Date
-  durationMs?: number
 }
 
-type SessionState =
-  | 'initializing'
-  | 'interviewer_speaking'
-  | 'waiting_for_candidate'
-  | 'candidate_speaking'
-  | 'processing'
-  | 'error'
-  | 'ending'
-  | 'ended'
-
-interface InterviewSessionProps {
-  sessionId: string
-  difficulty: 'warmup' | 'standard' | 'intense'
+export type InterviewContext = {
+  difficulty: Difficulty
   interviewType: string
-  targetRole: string
+  targetRole?: string
+  resumeContext?: string
+  conversationHistory: ConversationMessage[]
+  questionPlan?: string[]
+  currentQuestionIndex?: number
 }
 
-const ATMOSPHERIC_MESSAGES = [
-  'The interviewer is reviewing your response...',
-  'Taking notes...',
-  'Preparing the next question...',
-]
+export type InterviewerResponse = {
+  response: string
+  model: string
+  wasDegraded: boolean
+  degradedMessage?: string
+  nextQuestionId?: string
+  isClosing?: boolean
+}
 
-export function InterviewSession({
-  sessionId,
-  difficulty,
-  interviewType,
-  targetRole
-}: InterviewSessionProps) {
-  const router = useRouter()
+export type InterviewerError = {
+  success: false
+  error: string
+  friendlyMessage: string
+}
 
-  const [state, setState] = useState<SessionState>('initializing')
-  const [messages, setMessages] = useState<Message[]>([])
-  const [error, setError] = useState<string | null>(null)
-  const [atmosphericMessage, setAtmosphericMessage] = useState('')
-  const [isMuted, setIsMuted] = useState(false)
+/**
+ * Sanitize user input before sending to AI
+ * - Removes potential prompt injection attempts
+ * - Trims excessive whitespace
+ * - Limits length
+ */
+function sanitizeInput(text: string, maxLength: number = 5000): string {
+  if (!text) return ''
 
-  const messagesEndRef = useRef<HTMLDivElement>(null)
-  const recordingStartTime = useRef<number>(0)
-  const hasInitialized = useRef(false)
-  const currentAudio = useRef<HTMLAudioElement | null>(null)
+  return text
+    // Remove null bytes and control characters (except newlines/tabs)
+    .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '')
+    // Collapse multiple newlines to max 2
+    .replace(/\n{3,}/g, '\n\n')
+    // Collapse multiple spaces to single space
+    .replace(/ {2,}/g, ' ')
+    // Trim
+    .trim()
+    // Limit length
+    .slice(0, maxLength)
+}
 
-  const candidateMessageCount = messages.filter(m => m.role === 'candidate').length
-  const estimatedTotal = INTERVIEW_CONFIGS[interviewType as InterviewType]?.questionCount || 6
-  const progress = Math.min(100, (candidateMessageCount / estimatedTotal) * 100)
+// ============================================
+// SYSTEM PROMPT BUILDER
+// ============================================
 
-  const {
-    isRecording,
-    duration,
-    startRecording,
-    stopRecording,
-    error: recordError
-  } = useAudioRecorder()
+function buildSystemPrompt(
+  persona: InterviewerPersona,
+  resumeContext?: string,
+  currentQuestion?: Question,
+  exchangeCount: number = 0,
+  totalPlannedQuestions: number = 5
+): string {
+  const resumeSection = resumeContext
+    ? `\n\nCANDIDATE'S BACKGROUND (from their resume):\n${resumeContext}\n\nYou may reference this background, but do NOT fabricate details not listed here.`
+    : ''
 
-  // Scroll to bottom
-  useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }, [messages])
+  const questionGuidance = currentQuestion
+    ? `\n\nCURRENT QUESTION CONTEXT:
+Category: ${currentQuestion.category}
+Main Question: "${currentQuestion.question}"
+What good answers include: ${currentQuestion.lookingFor.join(', ')}
+Possible follow-ups: ${currentQuestion.followUps.join(' | ')}`
+    : ''
 
-  // Initialize
-  useEffect(() => {
-    if (hasInitialized.current) return
-    hasInitialized.current = true
-    startInterview()
+  const progressNote = `\n\nINTERVIEW PROGRESS: Exchange ${exchangeCount} of approximately ${totalPlannedQuestions * 2}. ${
+    exchangeCount >= totalPlannedQuestions * 2 - 2
+      ? 'This is near the end - wrap up naturally soon.'
+      : ''
+  }`
 
-    return () => {
-      stopSpeaking()
-      if (currentAudio.current) {
-        currentAudio.current.pause()
-        currentAudio.current = null
-      }
-    }
-  }, [])
+  return `You are ${persona.name}, ${persona.title}, conducting a behavioral interview.
 
-  // Warn before leaving
-  useEffect(() => {
-    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
-      if (state !== 'ended' && state !== 'error' && messages.length > 0) {
-        e.preventDefault()
-        e.returnValue = 'Interview in progress. Are you sure?'
-      }
-    }
-    window.addEventListener('beforeunload', handleBeforeUnload)
-    return () => window.removeEventListener('beforeunload', handleBeforeUnload)
-  }, [state, messages.length])
+YOUR PERSONALITY AND STYLE:
+${persona.style}
 
-  const getAtmosphericMessage = () => {
-    return ATMOSPHERIC_MESSAGES[Math.floor(Math.random() * ATMOSPHERIC_MESSAGES.length)]
+YOUR BEHAVIORS:
+${persona.behaviors.map(b => `- ${b}`).join('\n')}
+
+RESPONSE PATTERNS (use these for brief acknowledgments):
+${persona.responsePatterns.join(', ')}
+
+TRANSITION PHRASES (use when moving to new topics):
+${persona.transitions.join(', ')}
+
+CRITICAL RULES:
+1. You are conducting an INTERVIEW, not having a conversation
+2. Ask ONE question or follow-up at a time
+3. Keep your responses SHORT - typically 1-3 sentences
+4. Do NOT explain why you're asking something
+5. Do NOT give feedback or coach during the interview
+6. Do NOT say "great question" or similar - YOU ask the questions
+7. Stay in character as ${persona.name} throughout
+8. When candidate gives weak/vague answer, probe deeper based on your style
+9. After 1-2 follow-ups on a topic, move to the next planned question
+10. No asterisks, no stage directions, no markdown
+${resumeSection}
+${questionGuidance}
+${progressNote}`
+}
+
+// ============================================
+// ASK RIGHT QUESTIONS
+// ============================================
+function getQuestionsForInterview(
+  interviewType: string,
+  targetRole?: string
+): Question[] {
+  switch (interviewType) {
+    case 'technical':
+      return getTechnicalQuestionsForRole((targetRole as TargetRole) || 'fullstack', 6)
+    case 'hr_screen':
+      return getHRScreenQuestions(8)
+    case 'system_design':
+      return getSystemDesignQuestions(2)
+    case 'behavioral':
+    default:
+      return selectQuestionsForSession(5)
+  }
+}
+
+// Also need to get ALL questions for lookup
+function getAllQuestions(interviewType: string): Question[] {
+  switch (interviewType) {
+    case 'technical':
+      return TECHNICAL_QUESTIONS
+    case 'hr_screen':
+      return HR_SCREEN_QUESTIONS
+    case 'system_design':
+      return SYSTEM_DESIGN_QUESTIONS
+    case 'behavioral':
+    default:
+      return BEHAVIORAL_QUESTIONS
+  }
+}
+
+// ============================================
+// INTERVIEW STATE MANAGEMENT
+// ============================================
+
+function determineNextAction(
+  conversationHistory: ConversationMessage[],
+  questionPlan: string[],
+  currentQuestionIndex: number
+): { action: 'follow_up' | 'next_question' | 'close'; questionId?: string } {
+  const candidateResponses = conversationHistory.filter(m => m.role === 'candidate')
+  const exchangeCount = candidateResponses.length
+
+  // How many exchanges on current topic?
+  // Find last interviewer message that was a new question (not follow-up)
+  const recentExchanges = conversationHistory.slice(-4) // Last 2 exchanges
+  const followUpCount = recentExchanges.filter(m => m.role === 'candidate').length
+
+  // Time to close?
+  if (currentQuestionIndex >= questionPlan.length - 1 && followUpCount >= 1) {
+    return { action: 'close' }
   }
 
-  const playAudio = async (base64Audio: string): Promise<void> => {
-    return new Promise((resolve, reject) => {
-      try {
-        const binaryString = atob(base64Audio)
-        const bytes = new Uint8Array(binaryString.length)
-        for (let i = 0; i < binaryString.length; i++) {
-          bytes[i] = binaryString.charCodeAt(i)
-        }
+  // Should we follow up or move on?
+  // Follow up if: less than 2 follow-ups on this topic AND answer was short/vague
+  const lastCandidateResponse = candidateResponses[candidateResponses.length - 1]?.content || ''
+  const wordCount = lastCandidateResponse.split(/\s+/).length
+  const isShortAnswer = wordCount < 40
+  const shouldFollowUp = followUpCount < 2 && isShortAnswer
 
-        const blob = new Blob([bytes], { type: 'audio/wav' })
-        const url = URL.createObjectURL(blob)
-        const audio = new Audio(url)
-        currentAudio.current = audio
+  if (shouldFollowUp) {
+    return { action: 'follow_up', questionId: questionPlan[currentQuestionIndex] }
+  }
 
-        audio.onended = () => {
-          URL.revokeObjectURL(url)
-          currentAudio.current = null
-          resolve()
-        }
+  // Move to next question
+  const nextIndex = currentQuestionIndex + 1
+  if (nextIndex < questionPlan.length) {
+    return { action: 'next_question', questionId: questionPlan[nextIndex] }
+  }
 
-        audio.onerror = () => {
-          URL.revokeObjectURL(url)
-          currentAudio.current = null
-          reject(new Error('Audio playback failed'))
-        }
+  return { action: 'close' }
+}
 
-        audio.play().catch(reject)
-      } catch (err) {
-        reject(err)
-      }
+
+function getRandomFollowUp(question: Question): string | null {
+  if (!question.followUps || question.followUps.length === 0) return null
+  return question.followUps[Math.floor(Math.random() * question.followUps.length)]
+}
+
+
+// ============================================
+// MAIN RESPONSE GENERATOR
+// ============================================
+
+export async function generateInterviewerResponse(
+  context: InterviewContext,
+  onRetry?: (message: string, attempt: number) => void
+): Promise<InterviewerResponse | InterviewerError> {
+    const groq = getGroqClient()
+    const persona = getPersona(context.difficulty)
+
+    // Initialize question plan if this is the start
+    let questionPlan = context.questionPlan || []
+    let currentQuestionIndex = context.currentQuestionIndex || 0
+
+    // Get the correct question bank for this interview type
+    const allQuestions = getAllQuestions(context.interviewType)
+
+    if (questionPlan.length === 0) {
+      const questions = getQuestionsForInterview(context.interviewType, context.targetRole)
+      questionPlan = questions.map(q => q.id)
+    }
+
+    const exchangeCount = context.conversationHistory.filter(m => m.role === 'candidate').length
+
+    // Look up current question from the CORRECT question bank (not hardcoded BEHAVIORAL_QUESTIONS)
+    const currentQuestion = allQuestions.find(q => q.id === questionPlan[currentQuestionIndex])
+
+    // Determine what to do next
+    const nextAction = context.conversationHistory.length === 0
+      ? { action: 'next_question' as const, questionId: questionPlan[0] }
+      : determineNextAction(context.conversationHistory, questionPlan, currentQuestionIndex)
+
+    // Build the prompt
+    const systemPrompt = buildSystemPrompt(
+      persona,
+      context.resumeContext,
+      currentQuestion,
+      exchangeCount,
+      questionPlan.length
+    )
+
+    // Build instruction for this specific response
+    let instruction: string
+
+    if (context.conversationHistory.length === 0) {
+      // Opening
+      instruction = `Start the interview. Briefly introduce yourself (name and role only, one sentence), then ask your first question:
+  "${currentQuestion?.question || 'Tell me about yourself.'}"
+
+  Keep the intro SHORT - no more than 2 sentences total.`
+    } else if (nextAction.action === 'close') {
+      instruction = `The interview is wrapping up. Thank the candidate briefly and ask if they have any questions for you, or if there's anything else they'd like to share. Be natural and brief.`
+    } else if (nextAction.action === 'follow_up') {
+      const followUp = currentQuestion ? getRandomFollowUp(currentQuestion) : null
+      instruction = `The candidate's answer was brief or vague. Ask a follow-up to get more depth.
+  ${followUp ? `Consider asking something like: "${followUp}"` : 'Probe deeper on what they just said.'}
+  Remember your style: ${persona.style}
+  Keep it to ONE follow-up question.`
+    } else {
+      // Next question - look up from correct question bank
+      const nextQuestion = allQuestions.find(q => q.id === nextAction.questionId)
+      instruction = `Time to move to a new topic. Use a brief transition, then ask:
+  "${nextQuestion?.question || 'Tell me about another experience.'}"
+
+  Keep the transition SHORT - just 1-2 words, then the question.`
+    }
+
+  const messages: { role: 'system' | 'user' | 'assistant'; content: string }[] = [
+    { role: 'system', content: systemPrompt },
+  ]
+
+  // Add conversation history
+  for (const msg of context.conversationHistory) {
+    messages.push({
+      role: msg.role === 'interviewer' ? 'assistant' : 'user',
+      content: msg.content,
     })
   }
 
-  const speakInterviewerResponse = async (text: string) => {
-    if (isMuted) {
-      setState('waiting_for_candidate')
-      return
-    }
+  // Add instruction
+  messages.push({
+    role: 'user',
+    content: `[INSTRUCTION FOR YOUR NEXT RESPONSE]\n${instruction}`,
+  })
 
-    setState('interviewer_speaking')
-
-    try {
-      const response = await fetch('/api/voice/synthesize', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ text }),
+  const result = await executeWithFallback<string>(
+    'chat',
+    async (modelId) => {
+      const completion = await groq.chat.completions.create({
+        model: modelId,
+        messages: messages,
+        temperature: 0.7,
+        max_tokens: 200, // Keep responses short
       })
 
-      const data = await response.json()
-
-      if (data.shouldUseBrowserTTS || !data.audio) {
-        console.log('Using browser TTS')
-        await new Promise<void>((resolve) => {
-          speakText(text, {
-            onEnd: resolve,
-            onError: () => resolve(),
-          })
-        })
-      } else {
-        console.log('Playing Groq TTS')
-        try {
-          await playAudio(data.audio)
-        } catch (audioErr) {
-          console.error('Groq audio failed, using browser:', audioErr)
-          await new Promise<void>((resolve) => {
-            speakText(text, {
-              onEnd: resolve,
-              onError: () => resolve(),
-            })
-          })
-        }
-      }
-    } catch (err) {
-      console.error('TTS error:', err)
-      if (isBrowserTTSSupported()) {
-        await new Promise<void>((resolve) => {
-          speakText(text, {
-            onEnd: resolve,
-            onError: () => resolve(),
-          })
-        })
-      }
-    }
-
-    setState('waiting_for_candidate')
-  }
-
-  const startInterview = async () => {
-    setState('initializing')
-    setAtmosphericMessage('The interviewer is joining...')
-
-    try {
-      const response = await fetch('/api/interview/respond', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          sessionId,
-          difficulty,
-          interviewType,
-          targetRole,
-          conversationHistory: [],
-        }),
-      })
-
-      const data = await response.json()
-
-      if (!response.ok || data.success === false) {
-        throw new Error(data.friendlyMessage || data.error || 'Failed to start')
+      const response = completion.choices[0]?.message?.content
+      if (!response) {
+        throw new Error('Empty response from model')
       }
 
-      const message: Message = {
-        role: 'interviewer',
-        content: data.response,
-        timestamp: new Date(),
-      }
-      setMessages([message])
-
-      await speakInterviewerResponse(data.response)
-
-    } catch (err: any) {
-      console.error('Start interview error:', err)
-      setError(err.message || 'Failed to connect')
-      setState('error')
-    }
-  }
-
-  const handleStartRecording = async () => {
-    setError(null)
-    recordingStartTime.current = Date.now()
-    await startRecording()
-    setState('candidate_speaking')
-  }
-
-  const handleStopRecording = async () => {
-    const audioBlob = await stopRecording()
-
-    if (!audioBlob || audioBlob.size < 1000) {
-      setError('Recording too short. Please try again.')
-      setState('waiting_for_candidate')
-      return
-    }
-
-    const durationMs = Date.now() - recordingStartTime.current
-    setState('processing')
-    setAtmosphericMessage(getAtmosphericMessage())
-
-    try {
-      // Transcribe
-      const formData = new FormData()
-      formData.append('audio', audioBlob, 'recording.webm')
-
-      const transcribeRes = await fetch('/api/voice/transcribe', {
-        method: 'POST',
-        body: formData,
-      })
-
-      const transcribeData = await transcribeRes.json()
-
-      if (!transcribeRes.ok || transcribeData.success === false) {
-        throw new Error(transcribeData.friendlyMessage || 'Could not hear you')
-      }
-
-      if (!transcribeData.text?.trim()) {
-        throw new Error('No speech detected. Please try again.')
-      }
-
-      // Add candidate message
-      const candidateMessage: Message = {
-        role: 'candidate',
-        content: transcribeData.text,
-        timestamp: new Date(),
-        durationMs,
-      }
-
-      const updatedMessages = [...messages, candidateMessage]
-      setMessages(updatedMessages)
-
-      // Check if should end
-      const candidateCount = updatedMessages.filter(m => m.role === 'candidate').length
-      if (candidateCount >= estimatedTotal) {
-        await endInterview(updatedMessages)
-        return
-      }
-
-      // Get next response
-      setAtmosphericMessage(getAtmosphericMessage())
-
-      const interviewRes = await fetch('/api/interview/respond', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          sessionId,
-          difficulty,
-          interviewType,
-          targetRole,
-          conversationHistory: updatedMessages.map(m => ({
-            role: m.role,
-            content: m.content,
-          })),
-        }),
-      })
-
-      const interviewData = await interviewRes.json()
-
-      if (!interviewRes.ok || interviewData.success === false) {
-        throw new Error(interviewData.friendlyMessage || 'Interviewer disconnected')
-      }
-
-      // Check if closing
-      if (interviewData.isClosing) {
-        const closingMessage: Message = {
-          role: 'interviewer',
-          content: interviewData.response,
-          timestamp: new Date(),
-        }
-        const finalMessages = [...updatedMessages, closingMessage]
-        setMessages(finalMessages)
-        await speakInterviewerResponse(interviewData.response)
-
-        // End after closing remarks
-        setTimeout(() => endInterview(finalMessages), 2000)
-        return
-      }
-
-      const interviewerMessage: Message = {
-        role: 'interviewer',
-        content: interviewData.response,
-        timestamp: new Date(),
-      }
-      setMessages([...updatedMessages, interviewerMessage])
-
-      await speakInterviewerResponse(interviewData.response)
-
-    } catch (err: any) {
-      console.error('Processing error:', err)
-      setError(err.message || 'Something went wrong')
-      setState('waiting_for_candidate')
-    }
-  }
-
-  const endInterview = async (finalMessages: Message[]) => {
-    setState('ending')
-    setAtmosphericMessage('Generating your feedback...')
-
-    try {
-      const response = await fetch(`/api/session/${sessionId}/complete`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          conversationHistory: finalMessages.map(m => ({
-            role: m.role,
-            content: m.content,
-            durationMs: m.durationMs || 0,
-          })),
-        }),
-      })
-
-      if (!response.ok) {
-        throw new Error('Failed to save session')
-      }
-
-      setState('ended')
-      setTimeout(() => {
-        router.push(`/dashboard/session/${sessionId}/feedback`)
-      }, 1500)
-
-    } catch (err: any) {
-      console.error('End interview error:', err)
-      setError(err.message)
-      setState('error')
-    }
-  }
-
-  const handleEndInterview = async () => {
-    if (messages.length < 2) {
-      try {
-        await fetch(`/api/session/${sessionId}/abandon`, { method: 'POST' })
-      } catch (e) {}
-      router.push('/dashboard')
-      return
-    }
-    await endInterview(messages)
-  }
-
-  const toggleMute = () => {
-    if (!isMuted) {
-      stopSpeaking()
-      if (currentAudio.current) {
-        currentAudio.current.pause()
-      }
-    }
-    setIsMuted(!isMuted)
-  }
-
-  const handleRetry = () => {
-    setError(null)
-    if (messages.length === 0) {
-      hasInitialized.current = false
-      startInterview()
-    } else {
-      setState('waiting_for_candidate')
-    }
-  }
-
-  return (
-    <div className="max-w-3xl mx-auto flex flex-col h-[calc(100vh-8rem)]">
-      {/* Header */}
-      <div className="flex items-center justify-between mb-4">
-        <div>
-          <h1 className="text-xl font-semibold text-white capitalize">
-            {interviewType.replace('_', ' ')} Interview
-          </h1>
-          <div className="flex items-center gap-2 mt-1">
-            <p className="text-sm text-zinc-400 capitalize">{difficulty}</p>
-            <span className="text-zinc-600">•</span>
-            <p className="text-sm text-zinc-400">
-              Question {candidateMessageCount + 1} of ~{estimatedTotal}
-            </p>
-          </div>
-          {/* Progress bar */}
-          <div className="w-48 h-1 bg-zinc-800 rounded-full mt-2">
-            <div
-              className="h-full bg-violet-500 rounded-full transition-all duration-300"
-              style={{ width: `${progress}%` }}
-            />
-          </div>
-        </div>
-        <div className="flex items-center gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={toggleMute}
-            className="border-zinc-700"
-          >
-            {isMuted ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4" />}
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handleEndInterview}
-            className="border-zinc-700 text-red-400 hover:text-red-300"
-          >
-            <PhoneOff className="w-4 h-4 mr-2" />
-            End
-          </Button>
-        </div>
-      </div>
-
-      {/* Messages */}
-      <Card className="flex-1 bg-zinc-900/50 border-zinc-800 overflow-hidden flex flex-col">
-        <div className="flex-1 overflow-y-auto p-4 space-y-4">
-          {messages.map((message, index) => (
-            <div
-              key={index}
-              className={`flex gap-3 ${message.role === 'candidate' ? 'flex-row-reverse' : ''}`}
-            >
-              <div className={`
-                w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0
-                ${message.role === 'interviewer'
-                  ? 'bg-violet-500/20 text-violet-400'
-                  : 'bg-blue-500/20 text-blue-400'}
-              `}>
-                {message.role === 'interviewer'
-                  ? <MessageSquare className="w-4 h-4" />
-                  : <User className="w-4 h-4" />
-                }
-              </div>
-              <div className={`
-                max-w-[80%] p-3 rounded-lg
-                ${message.role === 'interviewer'
-                  ? 'bg-zinc-800 text-zinc-200'
-                  : 'bg-violet-500/20 text-zinc-200'}
-              `}>
-                <p className="text-sm">{message.content}</p>
-              </div>
-            </div>
-          ))}
-
-          {(state === 'initializing' || state === 'processing' || state === 'ending') && (
-            <div className="flex items-center gap-3">
-              <div className="w-8 h-8 rounded-full bg-violet-500/20 flex items-center justify-center">
-                <Loader2 className="w-4 h-4 text-violet-400 animate-spin" />
-              </div>
-              <div className="bg-zinc-800 rounded-lg p-3">
-                <p className="text-sm text-zinc-400 italic">{atmosphericMessage}</p>
-              </div>
-            </div>
-          )}
-
-          <div ref={messagesEndRef} />
-        </div>
-
-        {/* Error */}
-        {error && (
-          <div className="p-4 border-t border-zinc-800 bg-red-500/10">
-            <div className="flex items-center gap-3">
-              <AlertTriangle className="w-5 h-5 text-red-400" />
-              <p className="text-red-400 text-sm flex-1">{error}</p>
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={handleRetry}
-                className="border-red-500/30 text-red-400"
-              >
-                Retry
-              </Button>
-            </div>
-          </div>
-        )}
-
-        {/* Controls */}
-        <div className="p-4 border-t border-zinc-800">
-          <div className="flex items-center justify-center gap-4">
-            {state === 'waiting_for_candidate' && !isRecording && (
-              <Button
-                size="lg"
-                onClick={handleStartRecording}
-                className="bg-gradient-primary hover:opacity-90 h-14 px-8"
-              >
-                <Mic className="w-5 h-5 mr-2" />
-                Start Speaking
-              </Button>
-            )}
-
-            {isRecording && (
-              <Button
-                size="lg"
-                onClick={handleStopRecording}
-                variant="destructive"
-                className="h-14 px-8"
-              >
-                <Square className="w-5 h-5 mr-2" />
-                Stop ({duration}s)
-              </Button>
-            )}
-
-            {state === 'interviewer_speaking' && (
-              <div className="flex items-center gap-2 text-zinc-400">
-                <Volume2 className="w-5 h-5 animate-pulse" />
-                <span>Interviewer speaking...</span>
-              </div>
-            )}
-
-            {(state === 'processing' || state === 'ending') && (
-              <div className="flex items-center gap-2 text-zinc-400">
-                <Loader2 className="w-5 h-5 animate-spin" />
-                <span>{state === 'ending' ? 'Generating feedback...' : 'Processing...'}</span>
-              </div>
-            )}
-
-            {state === 'ended' && (
-              <div className="text-green-400">
-                Interview complete! Redirecting...
-              </div>
-            )}
-          </div>
-
-          {recordError && (
-            <p className="text-red-400 text-sm text-center mt-2">{recordError}</p>
-          )}
-        </div>
-      </Card>
-    </div>
+      return response.trim()
+    },
+    onRetry
   )
+
+  if (!result.success) {
+    return {
+      success: false,
+      error: result.error,
+      friendlyMessage: result.friendlyMessage,
+    }
+  }
+
+  // Clean up response
+  let cleanResponse = result.data
+    .replace(/\[.*?\]/g, '') // Remove bracketed instructions
+    .replace(/\*\*/g, '') // Remove markdown bold
+    .replace(/\*/g, '') // Remove markdown italic
+    .trim()
+
+  return {
+    response: cleanResponse,
+    model: result.model,
+    wasDegraded: result.wasDegraded,
+    degradedMessage: result.wasDegraded ? getDegradedMessage('chat') : undefined,
+    nextQuestionId: nextAction.questionId,
+    isClosing: nextAction.action === 'close',
+  }
 }
+
+// ============================================
+// FEEDBACK GENERATOR (keep existing but improve)
+// ============================================
+
+export type FeedbackResult = {
+  strengths: string[]
+  improvements: string[]
+  suggestions: string[]
+  overallScore: number
+  clarityScore: number
+  structureScore: number
+  relevanceScore: number
+  confidenceScore: number
+  summary: string
+  model: string
+  wasDegraded: boolean
+}
+
+export type FeedbackError = {
+  success: false
+  error: string
+  friendlyMessage: string
+}
+
+export async function generateFeedback(
+  conversationHistory: ConversationMessage[],
+  difficulty: Difficulty,
+  onRetry?: (message: string, attempt: number) => void
+): Promise<FeedbackResult | FeedbackError> {
+  const groq = getGroqClient()
+
+  const transcript = conversationHistory
+    .map((m) => `${m.role.toUpperCase()}: ${m.content}`)
+    .join('\n\n')
+
+  const candidateResponses = conversationHistory.filter((m) => m.role === 'candidate')
+
+  if (candidateResponses.length === 0) {
+    return {
+      success: false,
+      error: 'No candidate responses to analyze',
+      friendlyMessage: "We couldn't find any responses to analyze.",
+    }
+  }
+
+  const prompt = `You are an expert interview coach analyzing a behavioral interview practice session.
+
+FULL TRANSCRIPT:
+${transcript}
+
+INTERVIEW DETAILS:
+- Difficulty level: ${difficulty}
+- Total candidate responses: ${candidateResponses.length}
+
+ANALYZE THE CANDIDATE'S PERFORMANCE:
+
+1. STRUCTURE: Did they use STAR format (Situation, Task, Action, Result)?
+2. SPECIFICITY: Did they give concrete examples with details?
+3. METRICS: Did they quantify their impact when possible?
+4. RELEVANCE: Did they actually answer the questions asked?
+5. CONFIDENCE: Did they speak with certainty or hedge excessively?
+6. CLARITY: Were their answers easy to follow?
+
+PROVIDE FEEDBACK IN THIS EXACT JSON FORMAT:
+{
+  "strengths": [
+    "Specific strength with quote from their answer as evidence"
+  ],
+  "improvements": [
+    "Specific weakness with quote showing the problem"
+  ],
+  "suggestions": [
+    "Concrete, actionable tip they can apply in their next interview"
+  ],
+  "overallScore": <1-10>,
+  "clarityScore": <1-10>,
+  "structureScore": <1-10>,
+  "relevanceScore": <1-10>,
+  "confidenceScore": <1-10>,
+  "summary": "2-3 sentence personalized summary referencing their specific answers"
+}
+
+SCORING GUIDE (calibrated to ${difficulty} difficulty):
+- 1-3: Poor - major issues, would not advance
+- 4-5: Below average - significant gaps
+- 6-7: Average - acceptable but room to improve
+- 8-9: Strong - would likely advance
+- 10: Exceptional - top 5% of candidates
+
+BE SPECIFIC. Quote their actual words. Generic feedback is worthless.
+Return ONLY valid JSON, no markdown.`
+
+  const result = await executeWithFallback<FeedbackResult>(
+    'chat',
+    async (modelId) => {
+      const completion = await groq.chat.completions.create({
+        model: modelId,
+        messages: [
+          {
+            role: 'system',
+            content: 'You are an interview coach. Respond only with valid JSON.',
+          },
+          { role: 'user', content: prompt },
+        ],
+        temperature: 0.3,
+        max_tokens: 1500,
+      })
+
+      const responseText = completion.choices[0]?.message?.content || '{}'
+
+      const jsonMatch = responseText.match(/\{[\s\S]*\}/)
+      if (!jsonMatch) throw new Error('No JSON found')
+
+      const parsed = JSON.parse(jsonMatch[0])
+      const clamp = (n: number) => Math.max(1, Math.min(10, Math.round(n)))
+
+      return {
+        strengths: (parsed.strengths || []).slice(0, 4),
+        improvements: (parsed.improvements || []).slice(0, 4),
+        suggestions: (parsed.suggestions || []).slice(0, 4),
+        overallScore: clamp(parsed.overallScore || 5),
+        clarityScore: clamp(parsed.clarityScore || 5),
+        structureScore: clamp(parsed.structureScore || 5),
+        relevanceScore: clamp(parsed.relevanceScore || 5),
+        confidenceScore: clamp(parsed.confidenceScore || 5),
+        summary: parsed.summary || 'Feedback generation incomplete.',
+        model: modelId,
+        wasDegraded: false,
+      }
+    },
+    onRetry
+  )
+
+  if (!result.success) {
+    return {
+      success: false,
+      error: result.error,
+      friendlyMessage: result.friendlyMessage,
+    }
+  }
+
+  return {
+    ...result.data,
+    model: result.model,
+    wasDegraded: result.wasDegraded,
+  }
+}
+
+

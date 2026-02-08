@@ -111,7 +111,17 @@ export async function POST(
           confidenceScore: 5,
           summary: 'We had trouble analyzing this session. Your responses were recorded.',
         }
-      : feedbackResult
+      : feedbackResult as {
+          strengths: string[]
+          improvements: string[]
+          suggestions: string[]
+          overallScore: number
+          clarityScore: number
+          structureScore: number
+          relevanceScore: number
+          confidenceScore: number
+          summary: string
+        }
 
     // Calculate timing metrics
     const totalDuration = conversationHistory.reduce((sum, m) => sum + m.durationMs, 0)

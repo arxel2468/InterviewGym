@@ -1,3 +1,4 @@
+// src/components/session/interview-session.tsx
 'use client'
 
 import { useState, useEffect, useRef } from 'react'
@@ -52,7 +53,8 @@ const ATMOSPHERIC_MESSAGES = [
 export function InterviewSession({
   sessionId,
   difficulty,
-  interviewType
+  interviewType,
+  targetRole
 }: InterviewSessionProps) {
   const router = useRouter()
 
@@ -97,6 +99,7 @@ export function InterviewSession({
         currentAudio.current = null
       }
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   // Warn before leaving
@@ -110,10 +113,10 @@ export function InterviewSession({
     window.addEventListener('beforeunload', handleBeforeUnload)
     return () => window.removeEventListener('beforeunload', handleBeforeUnload)
   }, [state, messages.length])
-    // Keyboard shortcut: Space to start/stop recording
+
+  // Keyboard shortcut: Space to start/stop recording
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      // Ignore if typing in an input
       if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) {
         return
       }
@@ -131,6 +134,7 @@ export function InterviewSession({
 
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state, isRecording])
 
   const getAtmosphericMessage = () => {
@@ -233,10 +237,10 @@ export function InterviewSession({
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          sessionId,
-          difficulty,
-          interviewType,
-          targetRole,
+          sessionId: sessionId,
+          difficulty: difficulty,
+          interviewType: interviewType,
+          targetRole: targetRole,
           conversationHistory: [],
         }),
       })
@@ -256,9 +260,10 @@ export function InterviewSession({
 
       await speakInterviewerResponse(data.response)
 
-    } catch (err: any) {
+    } catch (err: unknown) {
+      const errorMessage = err instanceof Error ? err.message : 'Failed to connect'
       console.error('Start interview error:', err)
-      setError(err.message || 'Failed to connect')
+      setError(errorMessage)
       setState('error')
     }
   }
@@ -269,9 +274,10 @@ export function InterviewSession({
       recordingStartTime.current = Date.now()
       await startRecording()
       setState('candidate_speaking')
-    } catch (err: any) {
+    } catch (err: unknown) {
+      const errorMessage = err instanceof Error ? err.message : 'Could not access microphone'
       console.error('Recording start failed:', err)
-      setError(err.message || 'Could not access microphone. Please check permissions.')
+      setError(errorMessage)
       setState('waiting_for_candidate')
     }
   }
@@ -322,7 +328,7 @@ export function InterviewSession({
 
       // Check if should end
       const candidateCount = updatedMessages.filter(m => m.role === 'candidate').length
-      if (candidateCount >= 6) {
+      if (candidateCount >= estimatedTotal) {
         await endInterview(updatedMessages)
         return
       }
@@ -334,10 +340,10 @@ export function InterviewSession({
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          sessionId,
-          difficulty,
-          interviewType,
-          targetRole,
+          sessionId: sessionId,
+          difficulty: difficulty,
+          interviewType: interviewType,
+          targetRole: targetRole,
           conversationHistory: updatedMessages.map(m => ({
             role: m.role,
             content: m.content,
@@ -376,9 +382,10 @@ export function InterviewSession({
 
       await speakInterviewerResponse(interviewData.response)
 
-    } catch (err: any) {
+    } catch (err: unknown) {
+      const errorMessage = err instanceof Error ? err.message : 'Something went wrong'
       console.error('Processing error:', err)
-      setError(err.message || 'Something went wrong')
+      setError(errorMessage)
       setState('waiting_for_candidate')
     }
   }
@@ -409,7 +416,8 @@ export function InterviewSession({
         router.push(`/dashboard/session/${sessionId}/feedback`)
       }, 1500)
 
-    } catch (err: any) {
+    } catch (err: unknown) {
+      const errorMessage = err instanceof Error ? err.message : 'Failed to save session'
       console.error('End interview error:', err)
 
       // Retry up to 2 times
@@ -420,7 +428,7 @@ export function InterviewSession({
         return endInterview(finalMessages, retryCount + 1)
       }
 
-      setError('Failed to save session. Your responses were recorded - please try refreshing.')
+      setError(errorMessage + '. Your responses were recorded - please try refreshing.')
       setState('error')
     }
   }
@@ -429,7 +437,9 @@ export function InterviewSession({
     if (messages.length < 2) {
       try {
         await fetch(`/api/session/${sessionId}/abandon`, { method: 'POST' })
-      } catch (e) {}
+      } catch (e) {
+        // Ignore abandon errors
+      }
       router.push('/dashboard')
       return
     }
@@ -564,17 +574,19 @@ export function InterviewSession({
 
         {/* Controls */}
         <div className="p-4 border-t border-zinc-800">
-          <div className="flex items-center justify-center gap-4">
+          <div className="flex flex-col items-center justify-center gap-2">
             {state === 'waiting_for_candidate' && !isRecording && (
-              <Button
-                size="lg"
-                onClick={handleStartRecording}
-                className="bg-gradient-primary hover:opacity-90 h-14 px-8"
-              >
-                <Mic className="w-5 h-5 mr-2" />
-                Start Speaking
-              </Button>
-              <p className="text-xs text-zinc-500 mt-2">or press Space</p>
+              <>
+                <Button
+                  size="lg"
+                  onClick={handleStartRecording}
+                  className="bg-gradient-primary hover:opacity-90 h-14 px-8"
+                >
+                  <Mic className="w-5 h-5 mr-2" />
+                  Start Speaking
+                </Button>
+                <p className="text-xs text-zinc-500">or press Space</p>
+              </>
             )}
 
             {isRecording && (

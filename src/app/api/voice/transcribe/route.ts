@@ -26,9 +26,9 @@ export async function POST(request: Request) {
     let audioBlob: Blob
     if (audioFile instanceof File) {
       audioBlob = audioFile
-    } else if (audioFile instanceof Blob) {
-      audioBlob = audioFile
-    } else {
+    } else if (typeof audioFile === 'object' && audioFile !== null) {
+        audioBlob = audioFile as Blob
+      } else {
       return NextResponse.json({
         success: false,
         error: 'Invalid audio format',

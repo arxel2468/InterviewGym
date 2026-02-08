@@ -1,3 +1,4 @@
+// src/components/settings/settings-form.tsx
 'use client'
 
 import { useState } from 'react'
@@ -14,13 +15,12 @@ import {
   AlertTriangle,
   Save
 } from 'lucide-react'
-import { ROLE_LABELS, TargetRole } from '@/lib/questions'
 
 interface SettingsFormProps {
-  user: User & { resume?: { fileName: string } | null }
+  user: User
 }
 
-const ROLES: { value: TargetRole; label: string }[] = [
+const ROLES = [
   { value: 'frontend', label: 'Frontend Developer' },
   { value: 'backend', label: 'Backend Developer' },
   { value: 'fullstack', label: 'Full Stack Developer' },
