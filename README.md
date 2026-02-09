@@ -1,6 +1,10 @@
+
 # InterviewGym
 
-InterviewGym is an AI-powered, voice-first interview practice platform built with Next.js. It helps candidates prepare for job interviews through realistic mock sessions with an intelligent interviewer that asks real questions, challenges weak answers, and delivers actionable feedback.
+[![CI](https://github.com/arxel2468/interviewgym/actions/workflows/ci.yml/badge.svg)](https://github.com/arxel2468/interviewgym/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+
+> Practice interviews with AI. Fail safely before you fail expensively.
 
 ## Quick Links
 

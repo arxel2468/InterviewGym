@@ -1,5 +1,3 @@
-// prisma/schema.prisma
-
 generator client {
   provider = "prisma-client-js"
 }
@@ -10,196 +8,131 @@ datasource db {
   directUrl = env("DIRECT_URL")
 }
 
-// ============================================
-// USER
-// ============================================
 model User {
-  id        String   @id @default(uuid())
-  email     String   @unique
-  name      String?
-  avatarUrl String?  @map("avatar_url")
+  id                 String    @id @default(uuid())
+  email              String    @unique
+  name               String?
+  avatarUrl          String?   @map("avatar_url")
+  targetRole         String?   @map("target_role")
+  interviewTimeline  String?   @map("interview_timeline")
+  onboardingComplete Boolean   @default(false) @map("onboarding_complete")
+  totalSessions      Int       @default(0) @map("total_sessions")
+  currentStreak      Int       @default(0) @map("current_streak")
+  longestStreak      Int       @default(0) @map("longest_streak")
+  lastSessionAt      DateTime? @map("last_session_at")
+  createdAt          DateTime  @default(now()) @map("created_at")
+  updatedAt          DateTime  @updatedAt @map("updated_at")
+  resume             Resume?
+  sessions           Session[]
 
-  // Onboarding data
-  targetRole        String?  @map("target_role")
-  interviewTimeline String?  @map("interview_timeline")
-  onboardingComplete Boolean @default(false) @map("onboarding_complete")
-
-  // Gamification
-  totalSessions Int       @default(0) @map("total_sessions")
-  currentStreak Int       @default(0) @map("current_streak")
-  longestStreak Int       @default(0) @map("longest_streak")
-  lastSessionAt DateTime? @map("last_session_at")
-
-  // Relations
-  sessions Session[]
-  resume   Resume?
-
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt @map("updated_at")
-
+  @@index([email])
+  @@index([lastSessionAt])
   @@map("users")
 }
 
-// ============================================
-// RESUME (Optional upload)
-// ============================================
 model Resume {
-  id     String @id @default(uuid())
-  userId String @unique @map("user_id")
-  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  // Storage
-  fileUrl  String @map("file_url")
-  fileName String @map("file_name")
-
-  // Parsed content
-  rawText    String? @map("raw_text") @db.Text
-  parsedData Json?   @map("parsed_data")
-
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt @map("updated_at")
+  id         String   @id @default(uuid())
+  userId     String   @unique @map("user_id")
+  fileUrl    String   @map("file_url")
+  fileName   String   @map("file_name")
+  rawText    String?  @map("raw_text")
+  parsedData Json?    @map("parsed_data")
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("resumes")
 }
 
-// ============================================
-// SESSION (One interview workout)
-// ============================================
 model Session {
-  id     String @id @default(uuid())
-  userId String @map("user_id")
-  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  // Session config
-  interviewType String @map("interview_type")
-  difficulty    String
-  targetRole    String? @map("target_role")
-
-  // Status
-  status String @default("in_progress")
-
-  // Timing
+  id              String    @id @default(uuid())
+  userId          String    @map("user_id")
+  interviewType   String    @map("interview_type")
+  difficulty      String
+  status          String    @default("in_progress")
   startedAt       DateTime  @default(now()) @map("started_at")
   completedAt     DateTime? @map("completed_at")
   durationSeconds Int?      @map("duration_seconds")
-
-  // Resume context
-  usedResume Boolean @default(false) @map("used_resume")
-
-  // Relations
-  messages Message[]
-  feedback Feedback?
-  metrics  Metrics?
-
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt @map("updated_at")
+  usedResume      Boolean   @default(false) @map("used_resume")
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @updatedAt @map("updated_at")
+  targetRole      String?   @map("target_role")
+  feedback        Feedback?
+  messages        Message[]
+  metrics         Metrics?
+  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId, createdAt])
+  @@index([userId, status])
+  @@index([userId, completedAt])
+  @@index([userId, startedAt])
   @@map("sessions")
 }
 
-// ============================================
-// MESSAGE (Each Q&A exchange)
-// ============================================
 model Message {
-  id        String  @id @default(uuid())
-  sessionId String  @map("session_id")
-  session   Session @relation(fields: [sessionId], references: [id], onDelete: Cascade)
-
-  // Message data
-  role    String
-  content String @db.Text
-
-  // Timing
-  durationMs Int @map("duration_ms")
-
-  // Candidate message analysis
-  fillerWordCount Int? @map("filler_word_count")
-  pauseCount      Int? @map("pause_count")
-  longestPauseMs  Int? @map("longest_pause_ms")
-  wordCount       Int? @map("word_count")
-
-  // Order in conversation
-  orderIndex Int @map("order_index")
-
-  createdAt DateTime @default(now()) @map("created_at")
+  id              String   @id @default(uuid())
+  sessionId       String   @map("session_id")
+  role            String
+  content         String
+  durationMs      Int      @map("duration_ms")
+  fillerWordCount Int?     @map("filler_word_count")
+  pauseCount      Int?     @map("pause_count")
+  longestPauseMs  Int?     @map("longest_pause_ms")
+  wordCount       Int?     @map("word_count")
+  orderIndex      Int      @map("order_index")
+  createdAt       DateTime @default(now()) @map("created_at")
+  session         Session  @relation(fields: [sessionId], references: [id], onDelete: Cascade)
 
   @@index([sessionId, orderIndex])
+  @@index([sessionId, role])
   @@map("messages")
 }
 
-// ============================================
-// METRICS (Aggregated session stats)
-// ============================================
 model Metrics {
-  id        String  @id @default(uuid())
-  sessionId String  @unique @map("session_id")
-  session   Session @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  id                String   @id @default(uuid())
+  sessionId         String   @unique @map("session_id")
+  totalFillerWords  Int      @default(0) @map("total_filler_words")
+  totalPauses       Int      @default(0) @map("total_pauses")
+  longestPauseMs    Int      @default(0) @map("longest_pause_ms")
+  averageResponseMs Int      @default(0) @map("average_response_ms")
+  totalWordCount    Int      @default(0) @map("total_word_count")
+  questionsAnswered Int      @default(0) @map("questions_answered")
+  clarityScore      Int?     @map("clarity_score")
+  structureScore    Int?     @map("structure_score")
+  relevanceScore    Int?     @map("relevance_score")
+  confidenceScore   Int?     @map("confidence_score")
+  overallScore      Int?     @map("overall_score")
+  createdAt         DateTime @default(now()) @map("created_at")
+  session           Session  @relation(fields: [sessionId], references: [id], onDelete: Cascade)
 
-  // Quantitative metrics
-  totalFillerWords  Int @default(0) @map("total_filler_words")
-  totalPauses       Int @default(0) @map("total_pauses")
-  longestPauseMs    Int @default(0) @map("longest_pause_ms")
-  averageResponseMs Int @default(0) @map("average_response_ms")
-  totalWordCount    Int @default(0) @map("total_word_count")
-  questionsAnswered Int @default(0) @map("questions_answered")
-
-  // AI-evaluated scores (1-10)
-  clarityScore    Int? @map("clarity_score")
-  structureScore  Int? @map("structure_score")
-  relevanceScore  Int? @map("relevance_score")
-  confidenceScore Int? @map("confidence_score")
-  overallScore    Int? @map("overall_score")
-
-  createdAt DateTime @default(now()) @map("created_at")
-
+  @@index([overallScore])
   @@map("metrics")
 }
 
-// ============================================
-// FEEDBACK (AI-generated post-session)
-// ============================================
 model Feedback {
-  id        String  @id @default(uuid())
-  sessionId String  @unique @map("session_id")
-  session   Session @relation(fields: [sessionId], references: [id], onDelete: Cascade)
-
-  // Structured feedback
-  strengths    Json
-  improvements Json
-  suggestions  Json
-
-  // Full summary
-  summary String @db.Text
-
-  // User rating
-  helpfulnessRating Int? @map("helpfulness_rating")
-
-  createdAt DateTime @default(now()) @map("created_at")
+  id                String   @id @default(uuid())
+  sessionId         String   @unique @map("session_id")
+  strengths         Json
+  improvements      Json
+  suggestions       Json
+  summary           String
+  helpfulnessRating Int?     @map("helpfulness_rating")
+  createdAt         DateTime @default(now()) @map("created_at")
+  session           Session  @relation(fields: [sessionId], references: [id], onDelete: Cascade)
 
   @@map("feedbacks")
 }
 
-// ============================================
-// MODEL CACHE (Groq model rankings)
-// ============================================
 model ModelCache {
-  id        String   @id @default("singleton") // Only one row ever
-  
-  // Cached rankings by category (JSON arrays of model IDs)
-  sttModels  Json     @map("stt_models")   // ["whisper-large-v3-turbo", "whisper-large-v3"]
-  ttsModels  Json     @map("tts_models")   // ["canopylabs/orpheus-v1-english", "playai-tts"]
-  chatModels Json     @map("chat_models")  // ["llama-3.3-70b-versatile", ...]
-  
-  // Raw model data for reference
-  rawModels  Json     @map("raw_models")
-  
-  // Timestamps
+  id          String   @id @default("singleton")
+  sttModels   Json     @map("stt_models")
+  ttsModels   Json     @map("tts_models")
+  chatModels  Json     @map("chat_models")
+  rawModels   Json     @map("raw_models")
   lastUpdated DateTime @map("last_updated")
   expiresAt   DateTime @map("expires_at")
-  
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt @map("updated_at")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
 
   @@map("model_cache")
 }

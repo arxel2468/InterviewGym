@@ -9,6 +9,12 @@ import { TargetRole, InterviewType, Question } from '@/lib/questions'
 import { getGroqClient } from './client'
 import { executeWithFallback, getDegradedMessage } from './fallback'
 import { getPersona, InterviewerPersona } from '@/lib/prompts/interviewer-personas'
+import {
+  compressConversationHistory,
+  truncateToTokenLimit,
+  trackAIUsage,
+  estimateTokens
+} from '@/lib/ai-optimization'
 
 export type Difficulty = 'warmup' | 'standard' | 'intense'
 
@@ -279,8 +285,10 @@ export async function generateInterviewerResponse(
     { role: 'system', content: systemPrompt },
   ]
 
-  // Add conversation history
-  for (const msg of context.conversationHistory) {
+  // Compress and sanitize conversation history
+  const compressedHistory = compressConversationHistory(context.conversationHistory, 12)
+
+  for (const msg of compressedHistory) {
     messages.push({
       role: msg.role === 'interviewer' ? 'assistant' : 'user',
       content: msg.content,
@@ -296,11 +304,22 @@ export async function generateInterviewerResponse(
   const result = await executeWithFallback<string>(
     'chat',
     async (modelId) => {
+
+      const startTime = Date.now()
+
       const completion = await groq.chat.completions.create({
         model: modelId,
         messages: messages,
         temperature: 0.7,
         max_tokens: 200, // Keep responses short
+      })
+
+      trackAIUsage({
+        model: modelId,
+        inputTokens: estimateTokens(messages.map(m => m.content).join('')),
+        outputTokens: estimateTokens(completion.choices[0]?.message?.content || ''),
+        latencyMs: Date.now() - startTime,
+        timestamp: new Date(),
       })
 
       const response = completion.choices[0]?.message?.content
