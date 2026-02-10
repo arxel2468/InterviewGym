@@ -51,7 +51,6 @@ const ATMOSPHERIC_MESSAGES = [
   'Preparing the next question...',
 ]
 
-const { saveState, clearState, restoreMessages, hasSavedState, isRestored } = useSessionStorage(sessionId)
 
 export function InterviewSession({
   sessionId,
@@ -60,6 +59,9 @@ export function InterviewSession({
   targetRole
 }: InterviewSessionProps) {
   const router = useRouter()
+
+  const { saveState, clearState, restoreMessages, hasSavedState, isRestored } = useSessionStorage(sessionId)
+
 
   const [state, setState] = useState<SessionState>('initializing')
   const [messages, setMessages] = useState<Message[]>([])

@@ -1,3 +1,14 @@
+// src/lib/groq/interviewer.ts
+
+import { getGroqClient } from './client'
+import { executeWithFallback, getDegradedMessage } from './fallback'
+import { getPersona, InterviewerPersona } from '@/lib/prompts/interviewer-personas'
+import { sanitizeForAI } from '@/lib/utils/sanitize'
+import {
+  compressConversationHistory,
+  trackAIUsage,
+  estimateTokens
+} from '@/lib/ai-optimization'
 import {
   selectQuestionsForSession,
   BEHAVIORAL_QUESTIONS
@@ -5,16 +16,7 @@ import {
 import { getTechnicalQuestionsForRole, TECHNICAL_QUESTIONS } from '@/lib/questions/technical'
 import { getHRScreenQuestions, HR_SCREEN_QUESTIONS } from '@/lib/questions/hr-screen'
 import { getSystemDesignQuestions, SYSTEM_DESIGN_QUESTIONS } from '@/lib/questions/system-design'
-import { TargetRole, InterviewType, Question } from '@/lib/questions'
-import { getGroqClient } from './client'
-import { executeWithFallback, getDegradedMessage } from './fallback'
-import { getPersona, InterviewerPersona } from '@/lib/prompts/interviewer-personas'
-import {
-  compressConversationHistory,
-  truncateToTokenLimit,
-  trackAIUsage,
-  estimateTokens
-} from '@/lib/ai-optimization'
+import { TargetRole, Question } from '@/lib/questions'
 
 export type Difficulty = 'warmup' | 'standard' | 'intense'
 
@@ -48,26 +50,44 @@ export type InterviewerError = {
   friendlyMessage: string
 }
 
-/**
- * Sanitize user input before sending to AI
- * - Removes potential prompt injection attempts
- * - Trims excessive whitespace
- * - Limits length
- */
-function sanitizeInput(text: string, maxLength: number = 5000): string {
-  if (!text) return ''
+// ============================================
+// HELPER FUNCTIONS
+// ============================================
 
-  return text
-    // Remove null bytes and control characters (except newlines/tabs)
-    .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '')
-    // Collapse multiple newlines to max 2
-    .replace(/\n{3,}/g, '\n\n')
-    // Collapse multiple spaces to single space
-    .replace(/ {2,}/g, ' ')
-    // Trim
-    .trim()
-    // Limit length
-    .slice(0, maxLength)
+function getAllQuestions(interviewType: string): Question[] {
+  switch (interviewType) {
+    case 'technical':
+      return TECHNICAL_QUESTIONS
+    case 'hr_screen':
+      return HR_SCREEN_QUESTIONS
+    case 'system_design':
+      return SYSTEM_DESIGN_QUESTIONS
+    case 'behavioral':
+    default:
+      return BEHAVIORAL_QUESTIONS
+  }
+}
+
+function getQuestionsForInterview(
+  interviewType: string,
+  targetRole?: string
+): Question[] {
+  switch (interviewType) {
+    case 'technical':
+      return getTechnicalQuestionsForRole((targetRole as TargetRole) || 'fullstack', 6)
+    case 'hr_screen':
+      return getHRScreenQuestions(8)
+    case 'system_design':
+      return getSystemDesignQuestions(2)
+    case 'behavioral':
+    default:
+      return selectQuestionsForSession(5)
+  }
+}
+
+function getRandomFollowUp(question: Question): string | null {
+  if (!question.followUps || question.followUps.length === 0) return null
+  return question.followUps[Math.floor(Math.random() * question.followUps.length)]
 }
 
 // ============================================
@@ -130,41 +150,6 @@ ${progressNote}`
 }
 
 // ============================================
-// ASK RIGHT QUESTIONS
-// ============================================
-function getQuestionsForInterview(
-  interviewType: string,
-  targetRole?: string
-): Question[] {
-  switch (interviewType) {
-    case 'technical':
-      return getTechnicalQuestionsForRole((targetRole as TargetRole) || 'fullstack', 6)
-    case 'hr_screen':
-      return getHRScreenQuestions(8)
-    case 'system_design':
-      return getSystemDesignQuestions(2)
-    case 'behavioral':
-    default:
-      return selectQuestionsForSession(5)
-  }
-}
-
-// Also need to get ALL questions for lookup
-function getAllQuestions(interviewType: string): Question[] {
-  switch (interviewType) {
-    case 'technical':
-      return TECHNICAL_QUESTIONS
-    case 'hr_screen':
-      return HR_SCREEN_QUESTIONS
-    case 'system_design':
-      return SYSTEM_DESIGN_QUESTIONS
-    case 'behavioral':
-    default:
-      return BEHAVIORAL_QUESTIONS
-  }
-}
-
-// ============================================
 // INTERVIEW STATE MANAGEMENT
 // ============================================
 
@@ -174,20 +159,14 @@ function determineNextAction(
   currentQuestionIndex: number
 ): { action: 'follow_up' | 'next_question' | 'close'; questionId?: string } {
   const candidateResponses = conversationHistory.filter(m => m.role === 'candidate')
-  const exchangeCount = candidateResponses.length
 
-  // How many exchanges on current topic?
-  // Find last interviewer message that was a new question (not follow-up)
-  const recentExchanges = conversationHistory.slice(-4) // Last 2 exchanges
+  const recentExchanges = conversationHistory.slice(-4)
   const followUpCount = recentExchanges.filter(m => m.role === 'candidate').length
 
-  // Time to close?
   if (currentQuestionIndex >= questionPlan.length - 1 && followUpCount >= 1) {
     return { action: 'close' }
   }
 
-  // Should we follow up or move on?
-  // Follow up if: less than 2 follow-ups on this topic AND answer was short/vague
   const lastCandidateResponse = candidateResponses[candidateResponses.length - 1]?.content || ''
   const wordCount = lastCandidateResponse.split(/\s+/).length
   const isShortAnswer = wordCount < 40
@@ -197,7 +176,6 @@ function determineNextAction(
     return { action: 'follow_up', questionId: questionPlan[currentQuestionIndex] }
   }
 
-  // Move to next question
   const nextIndex = currentQuestionIndex + 1
   if (nextIndex < questionPlan.length) {
     return { action: 'next_question', questionId: questionPlan[nextIndex] }
@@ -205,13 +183,6 @@ function determineNextAction(
 
   return { action: 'close' }
 }
-
-
-function getRandomFollowUp(question: Question): string | null {
-  if (!question.followUps || question.followUps.length === 0) return null
-  return question.followUps[Math.floor(Math.random() * question.followUps.length)]
-}
-
 
 // ============================================
 // MAIN RESPONSE GENERATOR
@@ -221,77 +192,69 @@ export async function generateInterviewerResponse(
   context: InterviewContext,
   onRetry?: (message: string, attempt: number) => void
 ): Promise<InterviewerResponse | InterviewerError> {
-    const groq = getGroqClient()
-    const persona = getPersona(context.difficulty)
+  const groq = getGroqClient()
+  const persona = getPersona(context.difficulty)
 
-    // Initialize question plan if this is the start
-    let questionPlan = context.questionPlan || []
-    let currentQuestionIndex = context.currentQuestionIndex || 0
+  let questionPlan = context.questionPlan || []
+  const currentQuestionIndex = context.currentQuestionIndex || 0
 
-    // Get the correct question bank for this interview type
-    const allQuestions = getAllQuestions(context.interviewType)
+  const allQuestions = getAllQuestions(context.interviewType)
 
-    if (questionPlan.length === 0) {
-      const questions = getQuestionsForInterview(context.interviewType, context.targetRole)
-      questionPlan = questions.map(q => q.id)
-    }
+  if (questionPlan.length === 0) {
+    const questions = getQuestionsForInterview(context.interviewType, context.targetRole)
+    questionPlan = questions.map(q => q.id)
+  }
 
-    const exchangeCount = context.conversationHistory.filter(m => m.role === 'candidate').length
+  const exchangeCount = context.conversationHistory.filter(m => m.role === 'candidate').length
+  const currentQuestion = allQuestions.find(q => q.id === questionPlan[currentQuestionIndex])
 
-    // Look up current question from the CORRECT question bank (not hardcoded BEHAVIORAL_QUESTIONS)
-    const currentQuestion = allQuestions.find(q => q.id === questionPlan[currentQuestionIndex])
+  const nextAction = context.conversationHistory.length === 0
+    ? { action: 'next_question' as const, questionId: questionPlan[0] }
+    : determineNextAction(context.conversationHistory, questionPlan, currentQuestionIndex)
 
-    // Determine what to do next
-    const nextAction = context.conversationHistory.length === 0
-      ? { action: 'next_question' as const, questionId: questionPlan[0] }
-      : determineNextAction(context.conversationHistory, questionPlan, currentQuestionIndex)
+  const systemPrompt = buildSystemPrompt(
+    persona,
+    context.resumeContext,
+    currentQuestion,
+    exchangeCount,
+    questionPlan.length
+  )
 
-    // Build the prompt
-    const systemPrompt = buildSystemPrompt(
-      persona,
-      context.resumeContext,
-      currentQuestion,
-      exchangeCount,
-      questionPlan.length
-    )
+  let instruction: string
 
-    // Build instruction for this specific response
-    let instruction: string
+  if (context.conversationHistory.length === 0) {
+    instruction = `Start the interview. Briefly introduce yourself (name and role only, one sentence), then ask your first question:
+"${currentQuestion?.question || 'Tell me about yourself.'}"
 
-    if (context.conversationHistory.length === 0) {
-      // Opening
-      instruction = `Start the interview. Briefly introduce yourself (name and role only, one sentence), then ask your first question:
-  "${currentQuestion?.question || 'Tell me about yourself.'}"
+Keep the intro SHORT - no more than 2 sentences total.`
+  } else if (nextAction.action === 'close') {
+    instruction = `The interview is wrapping up. Thank the candidate briefly and ask if they have any questions for you, or if there's anything else they'd like to share. Be natural and brief.`
+  } else if (nextAction.action === 'follow_up') {
+    const followUp = currentQuestion ? getRandomFollowUp(currentQuestion) : null
+    instruction = `The candidate's answer was brief or vague. Ask a follow-up to get more depth.
+${followUp ? `Consider asking something like: "${followUp}"` : 'Probe deeper on what they just said.'}
+Remember your style: ${persona.style}
+Keep it to ONE follow-up question.`
+  } else {
+    const nextQuestion = allQuestions.find(q => q.id === nextAction.questionId)
+    instruction = `Time to move to a new topic. Use a brief transition, then ask:
+"${nextQuestion?.question || 'Tell me about another experience.'}"
 
-  Keep the intro SHORT - no more than 2 sentences total.`
-    } else if (nextAction.action === 'close') {
-      instruction = `The interview is wrapping up. Thank the candidate briefly and ask if they have any questions for you, or if there's anything else they'd like to share. Be natural and brief.`
-    } else if (nextAction.action === 'follow_up') {
-      const followUp = currentQuestion ? getRandomFollowUp(currentQuestion) : null
-      instruction = `The candidate's answer was brief or vague. Ask a follow-up to get more depth.
-  ${followUp ? `Consider asking something like: "${followUp}"` : 'Probe deeper on what they just said.'}
-  Remember your style: ${persona.style}
-  Keep it to ONE follow-up question.`
-    } else {
-      // Next question - look up from correct question bank
-      const nextQuestion = allQuestions.find(q => q.id === nextAction.questionId)
-      instruction = `Time to move to a new topic. Use a brief transition, then ask:
-  "${nextQuestion?.question || 'Tell me about another experience.'}"
+Keep the transition SHORT - just 1-2 words, then the question.`
+  }
 
-  Keep the transition SHORT - just 1-2 words, then the question.`
-    }
+  // Compress conversation history to save tokens
+  const compressedHistory = compressConversationHistory(context.conversationHistory, 12)
 
   const messages: { role: 'system' | 'user' | 'assistant'; content: string }[] = [
     { role: 'system', content: systemPrompt },
   ]
 
-  // Compress and sanitize conversation history
-  const compressedHistory = compressConversationHistory(context.conversationHistory, 12)
-
+  // Add compressed conversation history (SANITIZED)
   for (const msg of compressedHistory) {
     messages.push({
       role: msg.role === 'interviewer' ? 'assistant' : 'user',
-      content: msg.content,
+      content: msg.role === 'candidate' ? sanitizeForAI(msg.content) : msg.content,
     })
   }
 
@@ -301,28 +264,7 @@ export async function generateInterviewerResponse(
     content: `[INSTRUCTION FOR YOUR NEXT RESPONSE]\n${instruction}`,
   })
 
-  // Compress conversation history to save tokens
-const compressedHistory = compressConversationHistory(context.conversationHistory, 12)
-
-const messages: { role: 'system' | 'user' | 'assistant'; content: string }[] = [
-  { role: 'system', content: systemPrompt },
-]
-
-// Add compressed conversation history (SANITIZED)
-for (const msg of compressedHistory) {
-  messages.push({
-    role: msg.role === 'interviewer' ? 'assistant' : 'user',
-    content: msg.role === 'candidate' ? sanitizeForAI(msg.content) : msg.content,
-  })
-}
-
-// Add instruction
-messages.push({
-  role: 'user',
-  content: `[INSTRUCTION FOR YOUR NEXT RESPONSE]\n${instruction}`,
-})
-
-const result = await executeWithFallback<string>(
+  const result = await executeWithFallback<string>(
     'chat',
     async (modelId) => {
       const startTime = Date.now()
@@ -339,7 +281,6 @@ const result = await executeWithFallback<string>(
         throw new Error('Empty response from model')
       }
 
-      // Track usage
       trackAIUsage({
         model: modelId,
         inputTokens: estimateTokens(messages.map(m => m.content).join('')),
@@ -353,8 +294,32 @@ const result = await executeWithFallback<string>(
     onRetry
   )
 
+  if (!result.success) {
+    return {
+      success: false,
+      error: result.error,
+      friendlyMessage: result.friendlyMessage,
+    }
+  }
+
+  const cleanResponse = result.data
+    .replace(/\[.*?\]/g, '')
+    .replace(/\*\*/g, '')
+    .replace(/\*/g, '')
+    .trim()
+
+  return {
+    response: cleanResponse,
+    model: result.model,
+    wasDegraded: result.wasDegraded,
+    degradedMessage: result.wasDegraded ? getDegradedMessage('chat') : undefined,
+    nextQuestionId: nextAction.questionId,
+    isClosing: nextAction.action === 'close',
+  }
+}
+
 // ============================================
-// FEEDBACK GENERATOR (keep existing but improve)
+// FEEDBACK GENERATOR
 // ============================================
 
 export type FeedbackResult = {
@@ -500,5 +465,3 @@ Return ONLY valid JSON, no markdown.`
     wasDegraded: result.wasDegraded,
   }
 }
-
-
