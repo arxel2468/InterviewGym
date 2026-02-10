@@ -301,25 +301,37 @@ export async function generateInterviewerResponse(
     content: `[INSTRUCTION FOR YOUR NEXT RESPONSE]\n${instruction}`,
   })
 
-  const result = await executeWithFallback<string>(
+  // Compress conversation history to save tokens
+const compressedHistory = compressConversationHistory(context.conversationHistory, 12)
+
+const messages: { role: 'system' | 'user' | 'assistant'; content: string }[] = [
+  { role: 'system', content: systemPrompt },
+]
+
+// Add compressed conversation history (SANITIZED)
+for (const msg of compressedHistory) {
+  messages.push({
+    role: msg.role === 'interviewer' ? 'assistant' : 'user',
+    content: msg.role === 'candidate' ? sanitizeForAI(msg.content) : msg.content,
+  })
+}
+
+// Add instruction
+messages.push({
+  role: 'user',
+  content: `[INSTRUCTION FOR YOUR NEXT RESPONSE]\n${instruction}`,
+})
+
+const result = await executeWithFallback<string>(
     'chat',
     async (modelId) => {
-
       const startTime = Date.now()
 
       const completion = await groq.chat.completions.create({
         model: modelId,
         messages: messages,
         temperature: 0.7,
-        max_tokens: 200, // Keep responses short
-      })
-
-      trackAIUsage({
-        model: modelId,
-        inputTokens: estimateTokens(messages.map(m => m.content).join('')),
-        outputTokens: estimateTokens(completion.choices[0]?.message?.content || ''),
-        latencyMs: Date.now() - startTime,
-        timestamp: new Date(),
+        max_tokens: 200,
       })
 
       const response = completion.choices[0]?.message?.content
@@ -327,35 +339,19 @@ export async function generateInterviewerResponse(
         throw new Error('Empty response from model')
       }
 
+      // Track usage
+      trackAIUsage({
+        model: modelId,
+        inputTokens: estimateTokens(messages.map(m => m.content).join('')),
+        outputTokens: estimateTokens(response),
+        latencyMs: Date.now() - startTime,
+        timestamp: new Date(),
+      })
+
       return response.trim()
     },
     onRetry
   )
-
-  if (!result.success) {
-    return {
-      success: false,
-      error: result.error,
-      friendlyMessage: result.friendlyMessage,
-    }
-  }
-
-  // Clean up response
-  let cleanResponse = result.data
-    .replace(/\[.*?\]/g, '') // Remove bracketed instructions
-    .replace(/\*\*/g, '') // Remove markdown bold
-    .replace(/\*/g, '') // Remove markdown italic
-    .trim()
-
-  return {
-    response: cleanResponse,
-    model: result.model,
-    wasDegraded: result.wasDegraded,
-    degradedMessage: result.wasDegraded ? getDegradedMessage('chat') : undefined,
-    nextQuestionId: nextAction.questionId,
-    isClosing: nextAction.action === 'close',
-  }
-}
 
 // ============================================
 // FEEDBACK GENERATOR (keep existing but improve)
