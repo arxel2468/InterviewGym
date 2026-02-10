@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { useAudioRecorder } from '@/hooks/use-audio-recorder'
+import { useSessionStorage } from '@/hooks/use-session-storage'
 import { speakText, stopSpeaking, isBrowserTTSSupported } from '@/lib/browser-tts'
 import { INTERVIEW_CONFIGS, InterviewType } from '@/lib/questions'
 import {
@@ -50,6 +51,8 @@ const ATMOSPHERIC_MESSAGES = [
   'Preparing the next question...',
 ]
 
+const { saveState, clearState, restoreMessages, hasSavedState, isRestored } = useSessionStorage(sessionId)
+
 export function InterviewSession({
   sessionId,
   difficulty,
@@ -90,6 +93,15 @@ export function InterviewSession({
   useEffect(() => {
     if (hasInitialized.current) return
     hasInitialized.current = true
+
+    // Try to restore previous state
+    const savedMessages = restoreMessages()
+    if (savedMessages && savedMessages.length > 0) {
+      setMessages(savedMessages)
+      setState('waiting_for_candidate')
+      return
+    }
+
     startInterview()
 
     return () => {
@@ -100,7 +112,14 @@ export function InterviewSession({
       }
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  }, [isRestored])
+
+  // Save state on message changes
+  useEffect(() => {
+    if (messages.length > 0) {
+      saveState(messages)
+    }
+  }, [messages, saveState])
 
   // Warn before leaving
   useEffect(() => {
@@ -412,6 +431,7 @@ export function InterviewSession({
       }
 
       setState('ended')
+      clearState()
       setTimeout(() => {
         router.push(`/dashboard/session/${sessionId}/feedback`)
       }, 1500)
