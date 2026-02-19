@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
@@ -112,6 +112,20 @@ export function SessionSetupForm({ targetRole, hasResume }: SessionSetupFormProp
   const [difficulty, setDifficulty] = useState<Difficulty>('standard')
   const [useResume, setUseResume] = useState(hasResume)
   const [isLoading, setIsLoading] = useState(false)
+  const [userPlan, setUserPlan] = useState<string>('free')
+
+  useEffect(() => {
+    fetch('/api/user/plan')
+      .then(res => res.json())
+      .then(data => setUserPlan(data.plan))
+      .catch(() => setUserPlan('free'))
+  }, [])
+
+  // The interview type buttons, add lock:
+  const isLocked = (type: string) => {
+    if (userPlan === 'free' && type !== 'behavioral') return true
+    return false
+  }
 
   // Only show role selection for technical interviews
   const showRoleSelection = interviewType === 'technical' || interviewType === 'system_design'
@@ -159,11 +173,14 @@ export function SessionSetupForm({ targetRole, hasResume }: SessionSetupFormProp
             return (
               <button
                 key={type.value}
-                onClick={() => setInterviewType(type.value)}
+                onClick={() => !isLocked(type.value) && setInterviewType(type.value)}
                 className={`p-4 rounded-lg border text-left transition-all ${
                   isSelected
                     ? 'border-violet-500 bg-violet-500/10'
                     : 'border-zinc-800 hover:border-zinc-700 bg-zinc-900/50'
+                } ${
+                  isLocked(type.value)
+                  ? 'opacity-50 cursor-not-allowed' : ''
                 }`}
               >
                 <div className="flex items-start gap-3">
@@ -178,6 +195,9 @@ export function SessionSetupForm({ targetRole, hasResume }: SessionSetupFormProp
                     <p className="text-xs text-zinc-500 mt-1">{type.description}</p>
                   </div>
                 </div>
+                {isLocked(type.value) && (
+                  <span className="text-xs text-violet-400 mt-1">Student plan</span>
+                )}
               </button>
             )
           })}

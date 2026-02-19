@@ -223,11 +223,11 @@ export async function generateInterviewerResponse(
   let instruction: string
 
   if (context.conversationHistory.length === 0) {
-    instruction = `Start the interview. Briefly introduce yourself (name and role only, one sentence), then ask your first question:
-"${currentQuestion?.question || 'Tell me about yourself.'}"
+  instruction = `Start the interview. Say ONLY your name and first question. Example:
+    "Hi, I'm ${persona.name}. ${currentQuestion?.question || 'Tell me about yourself.'}"
 
-Keep the intro SHORT - no more than 2 sentences total.`
-  } else if (nextAction.action === 'close') {
+    NO small talk. NO "how are you". ONE sentence intro, then the question. That's it.`
+} else if (nextAction.action === 'close') {
     instruction = `The interview is wrapping up. Thank the candidate briefly and ask if they have any questions for you, or if there's anything else they'd like to share. Be natural and brief.`
   } else if (nextAction.action === 'follow_up') {
     const followUp = currentQuestion ? getRandomFollowUp(currentQuestion) : null
@@ -380,6 +380,12 @@ ANALYZE THE CANDIDATE'S PERFORMANCE:
 4. RELEVANCE: Did they actually answer the questions asked?
 5. CONFIDENCE: Did they speak with certainty or hedge excessively?
 6. CLARITY: Were their answers easy to follow?
+7. ENGLISH FLUENCY (important for this candidate):
+   - Grammar accuracy
+   - Vocabulary sophistication
+   - Sentence structure
+   - Professional language usage
+   - Common non-native speaker patterns
 
 PROVIDE FEEDBACK IN THIS EXACT JSON FORMAT:
 {
@@ -397,7 +403,10 @@ PROVIDE FEEDBACK IN THIS EXACT JSON FORMAT:
   "structureScore": <1-10>,
   "relevanceScore": <1-10>,
   "confidenceScore": <1-10>,
-  "summary": "2-3 sentence personalized summary referencing their specific answers"
+  "summary": "2-3 sentence personalized summary referencing their specific answers",
+  "fluencyScore": <1-10>,
+  "grammarNotes": ["specific grammar improvement suggestions"],
+  "vocabularySuggestions": ["professional words they could have used"]
 }
 
 SCORING GUIDE (calibrated to ${difficulty} difficulty):

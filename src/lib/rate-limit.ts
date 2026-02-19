@@ -1,31 +1,33 @@
 import { prisma } from './prisma'
-
-const DAILY_SESSION_LIMIT = 10 // Free tier limit
+import { getUserPlan } from './subscription'
 
 export async function checkRateLimit(userId: string): Promise<{
   allowed: boolean
   remaining: number
   resetAt: Date
+  plan: string
 }> {
+  const userPlan = await getUserPlan(userId)
+
   const today = new Date()
   today.setHours(0, 0, 0, 0)
-  
+
   const tomorrow = new Date(today)
   tomorrow.setDate(tomorrow.getDate() + 1)
 
   const sessionsToday = await prisma.session.count({
     where: {
       userId,
-      createdAt: {
-        gte: today,
-        lt: tomorrow,
-      },
+      createdAt: { gte: today, lt: tomorrow },
     },
   })
 
+  const limit = userPlan.sessionsPerDay
+
   return {
-    allowed: sessionsToday < DAILY_SESSION_LIMIT,
-    remaining: Math.max(0, DAILY_SESSION_LIMIT - sessionsToday),
+    allowed: sessionsToday < limit,
+    remaining: Math.max(0, limit - sessionsToday),
     resetAt: tomorrow,
+    plan: userPlan.plan,
   }
 }
