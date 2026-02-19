@@ -1,12 +1,10 @@
-// src/lib/utils/fluency.ts
 
 const COMMON_GRAMMAR_ISSUES = [
-  // Indian English patterns
   { pattern: /\bi am having\b/gi, suggestion: '"I have"', category: 'tense' },
   { pattern: /\bhe told that\b/gi, suggestion: '"he said that"', category: 'verb_choice' },
   { pattern: /\bI did not knew\b/gi, suggestion: '"I did not know"', category: 'tense' },
   { pattern: /\bmore better\b/gi, suggestion: '"better"', category: 'comparison' },
-  { pattern: /\bmyself [A-Z]\w+\b/g, suggestion: '"I am [Name]"', category: 'introduction' },
+  { pattern: /\bmyself\s+[A-Z][a-z]*/gi, suggestion: '"I am [Name]" or "My name is [Name]"', category: 'introduction' },
   { pattern: /\bkindly\b/gi, suggestion: '"please" (less formal)', category: 'formality' },
   { pattern: /\bdo the needful\b/gi, suggestion: '"take care of it" or "handle it"', category: 'idiom' },
   { pattern: /\bprepone\b/gi, suggestion: '"move up" or "reschedule earlier"', category: 'word_choice' },
@@ -57,12 +55,12 @@ export function analyzeFluency(text: string): FluencyAnalysis {
   )
 
   const uniqueWords = new Set(text.toLowerCase().split(/\s+/))
-  const vocabLevel = professionalVocab.length >= 5
-    ? 'advanced'
-    : professionalVocab.length >= 2
-      ? 'intermediate'
-      : 'basic'
-
+  const vocabLevel =
+    professionalVocab.length >= 3
+      ? 'advanced'
+      : professionalVocab.length >= 1
+        ? 'intermediate'
+        : 'basic'
   // Confidence markers
   const confidentPhrases = (text.match(/\b(I believe|in my experience|I'm confident|I successfully|I led|I drove)\b/gi) || []).length
   const hesitantPhrases = (text.match(/\b(maybe|I think|I guess|not sure|probably|perhaps)\b/gi) || []).length

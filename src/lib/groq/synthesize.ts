@@ -1,4 +1,8 @@
+
+
 import { getBestModel } from './models'
+import { sanitizeForTTS } from '@/lib/utils/sanitize'
+import { logger } from '@/lib/logger'
 
 export type SynthesisResult = {
   audio: ArrayBuffer
@@ -17,40 +21,57 @@ export type SynthesisError = {
 
 export type TTSFallbackLevel = 'primary' | 'secondary' | 'browser' | 'failed'
 
-// Available voices for Orpheus model
-const _VOICES = ['autumn', 'diana', 'hannah', 'austin', 'daniel', 'troy'] as const
-type Voice = typeof _VOICES[number]
+const VOICES = ['autumn', 'diana', 'hannah', 'austin', 'daniel', 'troy'] as const
+type Voice = (typeof VOICES)[number]
 
-export async function synthesizeSpeech(
+/**
+ * Split text into sentences for chunked TTS
+ * First chunk is spoken immediately, rest synthesized in parallel
+ */
+export function splitForStreaming(text: string): { first: string; rest: string | null } {
+  const cleaned = sanitizeForTTS(text)
+
+  // Find first sentence boundary
+  const match = cleaned.match(/^(.+?[.!?])\s+(.+)$/s)
+
+  if (match && match[1].length >= 20) {
+    return { first: match[1].trim(), rest: match[2].trim() }
+  }
+
+  // Text is one sentence or too short to split
+  return { first: cleaned, rest: null }
+}
+
+/**
+ * Synthesize a single chunk of text
+ */
+export async function synthesizeChunk(
   text: string,
-  voice: Voice = 'diana' // Changed from 'tara' to 'diana'
+  voice: Voice = 'diana'
 ): Promise<SynthesisResult | SynthesisError> {
-  // Get best available TTS model
   const model = await getBestModel('tts')
-  
+
   if (!model) {
-    logger.warn('No TTS model available, will use browser TTS')
     return {
       success: false,
       error: 'No TTS model available',
-      friendlyMessage: "Our cloud interviewers are busy. Using your browser's voice instead!",
+      friendlyMessage: "Using your browser's voice instead.",
       shouldUseBrowserTTS: true,
     }
   }
 
   try {
-    logger.info(`Using TTS model: ${model}, voice: ${voice}`)
+    const startTime = Date.now()
 
-    // Use direct API call since SDK may not have audio.speech typed
     const response = await fetch('https://api.groq.com/openai/v1/audio/speech', {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${process.env.GROQ_API_KEY}`,
+        Authorization: `Bearer ${process.env.GROQ_API_KEY}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: model,
-        voice: voice,
+        model,
+        voice,
         response_format: 'wav',
         input: text,
       }),
@@ -58,33 +79,46 @@ export async function synthesizeSpeech(
 
     if (!response.ok) {
       const errorText = await response.text()
-      logger.error('TTS API error:', response.status, errorText)
+      logger.error('TTS API error', { status: response.status, error: errorText })
       throw new Error(`TTS API error: ${response.status}`)
     }
 
     const arrayBuffer = await response.arrayBuffer()
-    
+    const latency = Date.now() - startTime
+
+    logger.info('TTS synthesis complete', { model, latencyMs: latency, textLength: text.length })
+
     return {
       audio: arrayBuffer,
-      model: model,
+      model,
       source: 'groq',
       wasDegraded: false,
       fallbackLevel: 'primary',
     }
   } catch (error) {
-    logger.error('TTS synthesis failed:', error)
-    
+    logger.error('TTS synthesis failed', { error: String(error) })
+
     return {
       success: false,
       error: String(error),
-      friendlyMessage: "Our cloud interviewers are busy. Using your browser's voice instead!",
+      friendlyMessage: "Using your browser's voice instead.",
       shouldUseBrowserTTS: true,
     }
   }
 }
 
 /**
- * Check if TTS result indicates we should use browser fallback
+ * Full synthesis — used by the API route for single-shot
+ */
+export async function synthesizeSpeech(
+  text: string,
+  voice: Voice = 'diana'
+): Promise<SynthesisResult | SynthesisError> {
+  return synthesizeChunk(sanitizeForTTS(text), voice)
+}
+
+/**
+ * Check if result indicates browser fallback needed
  */
 export function shouldUseBrowserFallback(
   result: SynthesisResult | SynthesisError

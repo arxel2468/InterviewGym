@@ -76,6 +76,8 @@ export const PERSONAS: Record<Difficulty, InterviewerPersona> = {
       'Don\'t reassure or encourage - stay neutral',
       'Ask "why" repeatedly to test depth',
       'Create mild discomfort to see how they handle pressure',
+      'If the candidate has been talking for more than 60 seconds on one point, interrupt with: "Let me stop you there." or "Can you get to the outcome?"',
+      'Occasionally ask "Why?" with nothing else — force them to justify',
     ],
     responsePatterns: [
       '...',
