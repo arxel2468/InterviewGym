@@ -70,6 +70,7 @@ const PLANS = [
 export function PricingCards() {
   const [loading, setLoading] = useState<string | null>(null)
 
+
   const handleSubscribe = async (planId: string) => {
     if (planId === 'free') {
       window.location.href = '/login'
@@ -85,18 +86,40 @@ export function PricingCards() {
         body: JSON.stringify({ plan: planId }),
       })
 
-      if (!response.ok) throw new Error('Failed to create subscription')
+      if (response.status === 401) {
+        // Not logged in — redirect to login with return URL
+        window.location.href = `/login?redirect=/pricing&plan=${planId}`
+        return
+      }
+
+      if (!response.ok) {
+        const data = await response.json()
+        throw new Error(data.error || 'Failed to create subscription')
+      }
 
       const data = await response.json()
 
-      // Load Razorpay checkout
-      const options = {
+      const options: RazorpayOptions = {
         key: data.razorpayKeyId,
         subscription_id: data.subscriptionId,
         name: 'InterviewGym',
         description: data.name,
-        handler: () => {
-          toast.success('Subscription activated!')
+        handler: async (response: RazorpayResponse) => {
+          // Verify payment on server
+          try {
+            await fetch('/api/payment/verify', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                razorpay_payment_id: response.razorpay_payment_id,
+                razorpay_subscription_id: response.razorpay_subscription_id,
+                razorpay_signature: response.razorpay_signature,
+              }),
+            })
+          } catch {
+            // Webhook will handle it even if verify fails
+          }
+          toast.success('Subscription activated! 🎉')
           window.location.href = '/dashboard'
         },
         theme: { color: '#8b5cf6' },
@@ -108,7 +131,7 @@ export function PricingCards() {
       const rzp = new window.Razorpay(options)
       rzp.open()
     } catch (error) {
-      toast.error('Payment failed. Please try again.')
+      toast.error(error instanceof Error ? error.message : 'Payment failed')
     } finally {
       setLoading(null)
     }

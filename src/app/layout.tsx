@@ -4,6 +4,7 @@ import * as Sentry from '@sentry/nextjs'
 import './globals.css'
 import { Toaster } from 'sonner'
 import { Analytics } from '@vercel/analytics/next'
+import Script from 'next/script'
 
 const inter = Inter({ subsets: ['latin'] })
 
@@ -49,6 +50,10 @@ export default function RootLayout({
           {children}
           <Toaster position="top-center" theme="dark" richColors />
           <Analytics />
+          <Script
+           src="https://checkout.razorpay.com/v1/checkout.js"
+           strategy="lazyOnload"
+          />
       </body>
     </html>
   )
