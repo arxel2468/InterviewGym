@@ -1,5 +1,6 @@
 import { requireAuth } from '@/lib/auth'
 import { DashboardNav } from '@/components/dashboard/nav'
+import { AuthProvider } from '@/components/providers/auth-provider'
 
 export default async function DashboardLayout({
   children,
@@ -9,11 +10,13 @@ export default async function DashboardLayout({
   const user = await requireAuth()
 
   return (
+    <AuthProvider>
     <div className="min-h-screen bg-[#09090B]">
       <DashboardNav user={user} />
       <main className="container mx-auto px-4 py-8 max-w-6xl">
         {children}
       </main>
     </div>
+  </AuthProvider>
   )
 }

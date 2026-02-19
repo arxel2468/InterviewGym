@@ -53,7 +53,7 @@ export async function POST(request: Request) {
       }, { status: 400 })
     }
 
-    console.log('Received audio for transcription:', {
+    logger.info('Received audio for transcription:', {
       size: audioBlob.size,
       type: audioBlob.type,
     })
@@ -67,7 +67,7 @@ export async function POST(request: Request) {
     
     return NextResponse.json(result)
   } catch (error: any) {
-    console.error('Transcription route error:', error)
+    logger.error('Transcription route error:', error)
     return NextResponse.json(
       {
         success: false,

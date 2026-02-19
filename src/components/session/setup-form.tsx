@@ -117,6 +117,7 @@ export function SessionSetupForm({ targetRole, hasResume }: SessionSetupFormProp
   const showRoleSelection = interviewType === 'technical' || interviewType === 'system_design'
 
   const handleStart = async () => {
+    if (isLoading) return // Guard
     setIsLoading(true)
 
     try {

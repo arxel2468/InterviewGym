@@ -19,7 +19,7 @@ export async function GET() {
 
     return NextResponse.json({ resume })
   } catch (error) {
-    console.error('Get resume error:', error)
+    logger.error('Get resume error:', error)
     return NextResponse.json({ error: 'Failed to get resume' }, { status: 500 })
   }
 }
@@ -69,7 +69,7 @@ export async function POST(request: Request) {
       }, { status: 400 })
     }
 
-    console.log('Extracted text length:', rawText.length)
+    logger.info('Extracted text length:', rawText.length)
 
     if (rawText.length < 100) {
       return NextResponse.json({
@@ -80,7 +80,7 @@ export async function POST(request: Request) {
     // Parse with AI
     const parsedData = await parseResume(rawText)
 
-    console.log('Parsed resume:', {
+    logger.info('Parsed resume:', {
       name: parsedData.name,
       skills: parsedData.skills?.length || 0,
       experience: parsedData.experience?.length || 0,
@@ -105,7 +105,7 @@ export async function POST(request: Request) {
 
     return NextResponse.json({ resume, parsed: parsedData })
   } catch (error: any) {
-    console.error('Upload resume error:', error)
+    logger.error('Upload resume error:', error)
     return NextResponse.json({
       error: error.message || 'Failed to process resume'
     }, { status: 500 })
@@ -127,7 +127,7 @@ export async function DELETE() {
 
     return NextResponse.json({ success: true })
   } catch (error) {
-    console.error('Delete resume error:', error)
+    logger.error('Delete resume error:', error)
     return NextResponse.json({ error: 'Failed to delete resume' }, { status: 500 })
   }
 }

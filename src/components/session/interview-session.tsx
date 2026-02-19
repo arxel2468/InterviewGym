@@ -213,7 +213,7 @@ export function InterviewSession({
       const data = await response.json()
 
       if (data.shouldUseBrowserTTS || !data.audio) {
-        console.log('Using browser TTS')
+        logger.info('Using browser TTS')
         await new Promise<void>((resolve) => {
           speakText(text, {
             onEnd: resolve,
@@ -221,11 +221,11 @@ export function InterviewSession({
           })
         })
       } else {
-        console.log('Playing Groq TTS')
+        logger.info('Playing Groq TTS')
         try {
           await playAudio(data.audio)
         } catch (audioErr) {
-          console.error('Groq audio failed, using browser:', audioErr)
+          logger.error('Groq audio failed, using browser:', audioErr)
           await new Promise<void>((resolve) => {
             speakText(text, {
               onEnd: resolve,
@@ -235,7 +235,7 @@ export function InterviewSession({
         }
       }
     } catch (err) {
-      console.error('TTS error:', err)
+      logger.error('TTS error:', err)
       if (isBrowserTTSSupported()) {
         await new Promise<void>((resolve) => {
           speakText(text, {
@@ -283,7 +283,7 @@ export function InterviewSession({
 
     } catch (err: unknown) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to connect'
-      console.error('Start interview error:', err)
+      logger.error('Start interview error:', err)
       setError(errorMessage)
       setState('error')
     }
@@ -297,7 +297,7 @@ export function InterviewSession({
       setState('candidate_speaking')
     } catch (err: unknown) {
       const errorMessage = err instanceof Error ? err.message : 'Could not access microphone'
-      console.error('Recording start failed:', err)
+      logger.error('Recording start failed:', err)
       setError(errorMessage)
       setState('waiting_for_candidate')
     }
@@ -405,7 +405,7 @@ export function InterviewSession({
 
     } catch (err: unknown) {
       const errorMessage = err instanceof Error ? err.message : 'Something went wrong'
-      console.error('Processing error:', err)
+      logger.error('Processing error:', err)
       setError(errorMessage)
       setState('waiting_for_candidate')
     }
@@ -440,11 +440,11 @@ export function InterviewSession({
 
     } catch (err: unknown) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to save session'
-      console.error('End interview error:', err)
+      logger.error('End interview error:', err)
 
       // Retry up to 2 times
       if (retryCount < 2) {
-        console.log(`Retrying session completion (attempt ${retryCount + 2})...`)
+        logger.info(`Retrying session completion (attempt ${retryCount + 2})...`)
         setAtmosphericMessage('Saving your session... retrying...')
         await new Promise(resolve => setTimeout(resolve, 1500))
         return endInterview(finalMessages, retryCount + 1)
@@ -612,15 +612,22 @@ export function InterviewSession({
             )}
 
             {isRecording && (
-              <Button
-                size="lg"
-                onClick={handleStopRecording}
-                variant="destructive"
-                className="h-14 px-8"
-              >
-                <Square className="w-5 h-5 mr-2" />
-                Stop ({duration}s)
-              </Button>
+               <div className="flex items-center gap-3">
+                <Button size="lg" onClick={handleStopRecording} variant="destructive" className="h-14 px-8">
+                  <Square className="w-5 h-5 mr-2" />
+                  Stop ({duration}s)
+                </Button>
+                {/* Audio level bars */}
+                <div className="flex items-end gap-0.5 h-8">
+                  {Array.from({ length: 5 }).map((_, i) => (
+                    <div
+                      key={i}
+                      className="w-1 rounded-full bg-violet-500 transition-all duration-75"
+                      style={{ height: `${Math.max(4, (audioLevel > i * 20 ? audioLevel : 10))}%` }}
+                    />
+                  ))}
+                </div>
+              </div>
             )}
 
             {state === 'interviewer_speaking' && (

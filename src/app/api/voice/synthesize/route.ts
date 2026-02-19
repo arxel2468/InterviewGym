@@ -41,7 +41,7 @@ export async function POST(request: Request) {
       fallbackLevel: result.fallbackLevel,
     })
   } catch (error: any) {
-    console.error('Synthesis error:', error)
+    logger.error('Synthesis error:', error)
     
     if (error instanceof z.ZodError) {
       return NextResponse.json({ error: 'Invalid request' }, { status: 400 })

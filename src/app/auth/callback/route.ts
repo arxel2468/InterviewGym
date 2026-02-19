@@ -10,12 +10,12 @@ export async function GET(request: Request) {
 
   // Handle OAuth errors (including from URL hash)
   if (error) {
-    console.error('OAuth error:', error, errorDescription)
+    logger.error('OAuth error:', error, errorDescription)
     return NextResponse.redirect(`${origin}/login?error=${encodeURIComponent(errorDescription || error)}`)
   }
 
   if (!code) {
-    console.error('No code provided in callback')
+    logger.error('No code provided in callback')
     return NextResponse.redirect(`${origin}/login?error=no_code`)
   }
 
@@ -24,19 +24,19 @@ export async function GET(request: Request) {
 
     // Verify supabase client was created
     if (!supabase || !supabase.auth) {
-      console.error('Supabase client not properly initialized')
+      logger.error('Supabase client not properly initialized')
       return NextResponse.redirect(`${origin}/login?error=auth_init_failed`)
     }
 
     const { data, error: sessionError } = await supabase.auth.exchangeCodeForSession(code)
 
     if (sessionError) {
-      console.error('Session exchange error:', sessionError.message)
+      logger.error('Session exchange error:', sessionError.message)
       return NextResponse.redirect(`${origin}/login?error=${encodeURIComponent(sessionError.message)}`)
     }
 
     if (!data.user) {
-      console.error('No user returned from session exchange')
+      logger.error('No user returned from session exchange')
       return NextResponse.redirect(`${origin}/login?error=no_user`)
     }
 
@@ -65,7 +65,7 @@ export async function GET(request: Request) {
     const redirectUrl = dbUser.onboardingComplete ? '/dashboard' : '/onboarding'
     return NextResponse.redirect(`${origin}${redirectUrl}`)
   } catch (err) {
-    console.error('Callback error:', err)
+    logger.error('Callback error:', err)
     return NextResponse.redirect(`${origin}/login?error=unexpected`)
   }
 }

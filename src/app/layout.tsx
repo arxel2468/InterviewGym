@@ -2,7 +2,6 @@ import type { Metadata } from 'next'
 import { Inter } from 'next/font/google'
 import * as Sentry from '@sentry/nextjs'
 import './globals.css'
-import { AuthProvider } from '@/components/providers/auth-provider'
 import { Toaster } from 'sonner'
 import { Analytics } from '@vercel/analytics/next'
 
@@ -47,11 +46,9 @@ export default function RootLayout({
   return (
     <html lang="en" className="dark">
       <body className={inter.className}>
-        <AuthProvider>
           {children}
           <Toaster position="top-center" theme="dark" richColors />
           <Analytics />
-        </AuthProvider>
       </body>
     </html>
   )

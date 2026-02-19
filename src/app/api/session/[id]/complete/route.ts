@@ -182,7 +182,7 @@ export async function POST(
       },
     })
   } catch (error) {
-    console.error('Complete session error:', error)
+    logger.error('Complete session error:', error)
     if (error instanceof z.ZodError) {
       return NextResponse.json({ error: 'Invalid request' }, { status: 400 })
     }

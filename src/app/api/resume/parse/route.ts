@@ -20,13 +20,13 @@ export async function POST(request: Request) {
     const body = await request.json()
     const { text } = schema.parse(body)
 
-    console.log('Parsing pasted resume, length:', text.length)
-    console.log('First 500 chars:', text.substring(0, 500))
+    logger.info('Parsing pasted resume, length:', text.length)
+    logger.info('First 500 chars:', text.substring(0, 500))
 
     // Parse resume with AI
     const parsedData = await parseResume(text)
 
-    console.log('Parsed result:', {
+    logger.info('Parsed result:', {
       name: parsedData.name,
       skills: parsedData.skills?.length || 0,
       experience: parsedData.experience?.length || 0,
@@ -63,7 +63,7 @@ export async function POST(request: Request) {
 
     return NextResponse.json({ resume, parsed: parsedData })
   } catch (error: any) {
-    console.error('Parse resume error:', error)
+    logger.error('Parse resume error:', error)
     
     if (error instanceof z.ZodError) {
       return NextResponse.json({ error: error.errors[0].message }, { status: 400 })

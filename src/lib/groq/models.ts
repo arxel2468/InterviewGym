@@ -164,7 +164,7 @@ async function fetchModelsFromGroq(): Promise<GroqModel[]> {
 }
 
 export async function refreshModelCache(): Promise<ModelRankings> {
-  console.log('Refreshing model cache from Groq...')
+  logger.info('Refreshing model cache from Groq...')
   
   const models = await fetchModelsFromGroq()
   
@@ -196,7 +196,7 @@ export async function refreshModelCache(): Promise<ModelRankings> {
     },
   })
   
-  console.log('Model cache refreshed:', {
+  logger.info('Model cache refreshed:', {
     stt: sttModels,
     tts: ttsModels,
     chat: chatModels.slice(0, 5),

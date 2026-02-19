@@ -4,6 +4,7 @@ import { prisma } from '@/lib/prisma'
 import { generateInterviewerResponse, Difficulty } from '@/lib/groq/interviewer'
 import { formatResumeForContext, ParsedResume } from '@/lib/groq/resume-parser'
 import { z } from 'zod'
+import { logger } from '@/lib/logger'
 
 const requestSchema = z.object({
   sessionId: z.string().optional(),
@@ -40,7 +41,7 @@ export async function POST(request: Request) {
       }
       body = JSON.parse(text)
     } catch (parseError) {
-      console.error('JSON parse error:', parseError)
+      logger.error('JSON parse error:', parseError)
       return NextResponse.json({
         success: false,
         error: 'Invalid JSON',
@@ -58,18 +59,18 @@ export async function POST(request: Request) {
         where: { id: context.sessionId, userId: user.id },
       })
 
-      console.log('Session usedResume:', session?.usedResume)
+      logger.info('Session usedResume:', session?.usedResume)
 
       if (session?.usedResume) {
         const resume = await prisma.resume.findUnique({
           where: { userId: user.id },
         })
 
-        console.log('Resume found:', !!resume, 'parsedData:', !!resume?.parsedData)
+        logger.info('Resume found:', !!resume, 'parsedData:', !!resume?.parsedData)
 
         if (resume?.parsedData) {
           resumeContext = formatResumeForContext(resume.parsedData as ParsedResume)
-          console.log('Resume context generated:', resumeContext?.substring(0, 200))
+          logger.info('Resume context generated:', resumeContext?.substring(0, 200))
         }
       }
     }
@@ -88,7 +89,7 @@ export async function POST(request: Request) {
 
     return NextResponse.json(result)
   } catch (error: any) {
-    console.error('Interview response error:', error)
+    logger.error('Interview response error:', error)
 
     if (error instanceof z.ZodError) {
       return NextResponse.json({

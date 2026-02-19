@@ -1,23 +1,4 @@
-export type QuestionCategory = 
-  | 'intro'
-  | 'teamwork'
-  | 'conflict'
-  | 'leadership'
-  | 'failure'
-  | 'achievement'
-  | 'problem_solving'
-  | 'pressure'
-  | 'growth'
-  | 'motivation'
-  | 'closing'
-
-export type Question = {
-  id: string
-  category: QuestionCategory
-  question: string
-  followUps: string[]
-  lookingFor: string[] // What a good answer includes
-}
+import { Question, QuestionCategory } from './index'
 
 export const BEHAVIORAL_QUESTIONS: Question[] = [
   // INTRO

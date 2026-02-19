@@ -30,7 +30,7 @@ export async function transcribeAudio(
   }
 
   // Log for debugging
-  console.log('Transcribing audio:', {
+  logger.info('Transcribing audio:', {
     size: audioBlob.size,
     type: audioBlob.type,
   })
@@ -49,7 +49,7 @@ export async function transcribeAudio(
   const result = await executeWithFallback<{ text: string; duration: number }>(
     'stt',
     async (modelId) => {
-      console.log(`Attempting transcription with model: ${modelId}`)
+      logger.info(`Attempting transcription with model: ${modelId}`)
 
       const transcription = await groq.audio.transcriptions.create({
         file: file,
@@ -64,7 +64,7 @@ export async function transcribeAudio(
         throw new Error('Empty transcription result')
       }
 
-      console.log('Transcription successful:', transcription.text.substring(0, 50))
+      logger.info('Transcription successful:', transcription.text.substring(0, 50))
 
       return {
         text: transcription.text,

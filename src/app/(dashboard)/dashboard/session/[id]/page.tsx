@@ -11,7 +11,7 @@ export default async function SessionPage({ params }: PageProps) {
   const { id } = await params
   const user = await requireAuth()
   
-  console.log('Loading session:', id, 'for user:', user.id)
+  logger.info('Loading session:', id, 'for user:', user.id)
   
   const session = await prisma.session.findUnique({
     where: { 
@@ -20,10 +20,10 @@ export default async function SessionPage({ params }: PageProps) {
     },
   })
 
-  console.log('Session found:', session)
+  logger.info('Session found:', session)
 
   if (!session) {
-    console.log('Session not found, returning 404')
+    logger.info('Session not found, returning 404')
     notFound()
   }
 

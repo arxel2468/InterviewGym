@@ -29,7 +29,7 @@ export async function synthesizeSpeech(
   const model = await getBestModel('tts')
   
   if (!model) {
-    console.warn('No TTS model available, will use browser TTS')
+    logger.warn('No TTS model available, will use browser TTS')
     return {
       success: false,
       error: 'No TTS model available',
@@ -39,7 +39,7 @@ export async function synthesizeSpeech(
   }
 
   try {
-    console.log(`Using TTS model: ${model}, voice: ${voice}`)
+    logger.info(`Using TTS model: ${model}, voice: ${voice}`)
 
     // Use direct API call since SDK may not have audio.speech typed
     const response = await fetch('https://api.groq.com/openai/v1/audio/speech', {
@@ -58,7 +58,7 @@ export async function synthesizeSpeech(
 
     if (!response.ok) {
       const errorText = await response.text()
-      console.error('TTS API error:', response.status, errorText)
+      logger.error('TTS API error:', response.status, errorText)
       throw new Error(`TTS API error: ${response.status}`)
     }
 
@@ -72,7 +72,7 @@ export async function synthesizeSpeech(
       fallbackLevel: 'primary',
     }
   } catch (error) {
-    console.error('TTS synthesis failed:', error)
+    logger.error('TTS synthesis failed:', error)
     
     return {
       success: false,

@@ -419,11 +419,24 @@ export function FeedbackView({ session, messages, metrics, feedback }: FeedbackV
                       : 'bg-violet-500/10 text-zinc-300'}
                   `}>
                     <p className="text-sm">{message.content}</p>
-                    {message.role === 'candidate' && message.fillerWordCount !== null && message.fillerWordCount !== undefined && message.fillerWordCount > 0 && (
-                      <p className="text-xs text-zinc-500 mt-2">
-                        {message.fillerWordCount} filler word{message.fillerWordCount !== 1 ? 's' : ''} · {message.wordCount} words
-                      </p>
-                    )}
+                    {message.role === 'candidate' && (
+                        <div className="mt-2 flex items-center gap-3 text-xs text-zinc-500">
+                          {message.wordCount && (
+                            <span>{message.wordCount} words</span>
+                          )}
+                          {message.fillerWordCount !== null && message.fillerWordCount > 0 && (
+                            <span className="text-amber-400">
+                              {message.fillerWordCount} filler{message.fillerWordCount !== 1 ? 's' : ''}
+                            </span>
+                          )}
+                          {message.wordCount && message.wordCount < 30 && (
+                            <span className="text-red-400">Too brief</span>
+                          )}
+                          {message.wordCount && message.wordCount > 200 && (
+                            <span className="text-amber-400">Could be more concise</span>
+                          )}
+                        </div>
+                      )}
                   </div>
                 </div>
               ))}

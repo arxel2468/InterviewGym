@@ -6,8 +6,6 @@ import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import { Plus, TrendingUp, Calendar, Clock, ArrowRight } from 'lucide-react'
 
-// Threshold: sessions older than 2 hours are considered abandoned
-const ABANDONMENT_THRESHOLD_MS = 2 * 60 * 60 * 1000
 
 export default async function DashboardPage() {
   const user = await requireAuth()
@@ -15,21 +13,6 @@ export default async function DashboardPage() {
   if (!user.onboardingComplete) {
     redirect('/onboarding')
   }
-
-  // Clean up abandoned sessions
-  const cutoffTime = new Date(Date.now() - ABANDONMENT_THRESHOLD_MS)
-  await prisma.session.updateMany({
-    where: {
-      userId: user.id,
-      status: 'in_progress',
-      startedAt: {
-        lt: cutoffTime,
-      },
-    },
-    data: {
-      status: 'abandoned',
-    },
-  })
 
   // Check for any active session (started within threshold)
   const activeSession = await prisma.session.findFirst({
@@ -89,7 +72,7 @@ export default async function DashboardPage() {
         </Link>
       </div>
 
-      {/* Rest of the component stays the same... */}
+
       {/* Stats Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <Card className="bg-zinc-900/50 border-zinc-800">
