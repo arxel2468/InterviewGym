@@ -17,7 +17,6 @@ import {
   ChevronUp,
   User,
   BarChart3,
-  Languages
 } from 'lucide-react'
 import { useState } from 'react'
 import { getFillerAssessment, getLengthAssessment, getTimeAssessment } from '@/lib/utils/metrics'
@@ -298,57 +297,8 @@ export function FeedbackView({ session, messages, metrics, feedback }: FeedbackV
       )}
 
 
-      {/* English Fluency Card — only for paid users or always? */}
-      <Card className="bg-zinc-900/50 border-zinc-800">
-        <CardHeader>
-          <CardTitle className="text-lg text-white flex items-center gap-2">
-            <Languages className="w-5 h-5 text-violet-400" />
-            English Fluency
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          {/* Vocabulary Level */}
-          <div className="flex items-center justify-between p-3 rounded-lg bg-zinc-800/50">
-            <span className="text-zinc-400 text-sm">Vocabulary Level</span>
-            <span className={`text-sm font-medium ${
-              vocabLevel === 'advanced' ? 'text-green-400' :
-              vocabLevel === 'intermediate' ? 'text-violet-400' : 'text-amber-400'
-            }`}>
-              {vocabLevel.charAt(0).toUpperCase() + vocabLevel.slice(1)}
-            </span>
-          </div>
+      {/* TODO: English Fluency Card — only for paid users or always? */}
 
-          {/* Professional words used */}
-          {professionalWords.length > 0 && (
-            <div>
-              <p className="text-xs text-zinc-500 mb-2">Strong vocabulary used ✓</p>
-              <div className="flex flex-wrap gap-1">
-                {professionalWords.map((word, i) => (
-                  <span key={i} className="px-2 py-0.5 rounded bg-green-500/10 text-green-400 text-xs">
-                    {word}
-                  </span>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Grammar suggestions */}
-          {grammarIssues.length > 0 && (
-            <div>
-              <p className="text-xs text-zinc-500 mb-2">Suggestions for improvement</p>
-              <ul className="space-y-2">
-                {grammarIssues.map((issue, i) => (
-                  <li key={i} className="p-2 rounded bg-amber-500/10 border border-amber-500/20">
-                    <p className="text-sm text-amber-300">
-                      Instead of "{issue.found}", try {issue.suggestion}
-                    </p>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
-        </CardContent>
-      </Card>
 
       {/* Summary */}
       <Card className="bg-zinc-900/50 border-zinc-800">
@@ -478,7 +428,7 @@ export function FeedbackView({ session, messages, metrics, feedback }: FeedbackV
                           {message.wordCount && (
                             <span>{message.wordCount} words</span>
                           )}
-                          {message.fillerWordCount !== null && message.fillerWordCount > 0 && (
+                          {message.fillerWordCount != null && message.fillerWordCount > 0 && (
                             <span className="text-amber-400">
                               {message.fillerWordCount} filler{message.fillerWordCount !== 1 ? 's' : ''}
                             </span>

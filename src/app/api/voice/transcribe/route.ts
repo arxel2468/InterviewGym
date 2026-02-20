@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { transcribeAudio } from '@/lib/groq/transcribe'
+import { logger } from '@/lib/logger'
 
 export async function POST(request: Request) {
   try {

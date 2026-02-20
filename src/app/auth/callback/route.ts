@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import { logger } from '@/lib/logger'
 
 export async function GET(request: Request) {
   const { searchParams, origin } = new URL(request.url)
@@ -10,7 +11,7 @@ export async function GET(request: Request) {
 
   // Handle OAuth errors (including from URL hash)
   if (error) {
-    logger.error('OAuth error:', error, errorDescription)
+    logger.error('OAuth error:', {error, errorDescription})
     return NextResponse.redirect(`${origin}/login?error=${encodeURIComponent(errorDescription || error)}`)
   }
 
@@ -31,7 +32,7 @@ export async function GET(request: Request) {
     const { data, error: sessionError } = await supabase.auth.exchangeCodeForSession(code)
 
     if (sessionError) {
-      logger.error('Session exchange error:', sessionError.message)
+      logger.error('Session exchange error:', { message: sessionError.message })
       return NextResponse.redirect(`${origin}/login?error=${encodeURIComponent(sessionError.message)}`)
     }
 
@@ -65,7 +66,7 @@ export async function GET(request: Request) {
     const redirectUrl = dbUser.onboardingComplete ? '/dashboard' : '/onboarding'
     return NextResponse.redirect(`${origin}${redirectUrl}`)
   } catch (err) {
-    logger.error('Callback error:', err)
+    logger.error('Callback error:', { error: String(err) })
     return NextResponse.redirect(`${origin}/login?error=unexpected`)
   }
 }

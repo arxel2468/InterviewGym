@@ -1,5 +1,6 @@
 import Groq from 'groq-sdk'
 import { prisma } from '@/lib/prisma'
+import { logger } from '@/lib/logger'
 
 // Types
 export type ModelCategory = 'stt' | 'tts' | 'chat'

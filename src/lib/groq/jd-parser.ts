@@ -1,4 +1,5 @@
 // src/lib/groq/jd-parser.ts
+
 export async function parseJobDescription(text: string): Promise<{
   company: string
   role: string
@@ -7,5 +8,13 @@ export async function parseJobDescription(text: string): Promise<{
   keyResponsibilities: string[]
   suggestedQuestions: string[]
 }> {
-  // Similar to resume parser but for JDs
+  // TODO: Implement with Groq LLM
+  return {
+    company: '',
+    role: '',
+    requiredSkills: [],
+    niceToHaveSkills: [],
+    keyResponsibilities: [],
+    suggestedQuestions: [],
+  }
 }

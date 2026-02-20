@@ -41,7 +41,7 @@ export async function POST(request: Request) {
       }
       body = JSON.parse(text)
     } catch (parseError) {
-      logger.error('JSON parse error:', parseError)
+      logger.error('JSON parse error:',  { error: String(parseError) })
       return NextResponse.json({
         success: false,
         error: 'Invalid JSON',
@@ -59,18 +59,18 @@ export async function POST(request: Request) {
         where: { id: context.sessionId, userId: user.id },
       })
 
-      logger.info('Session usedResume:', session?.usedResume)
+      logger.info('Session usedResume:',  { usedResume: session?.usedResume })
 
       if (session?.usedResume) {
         const resume = await prisma.resume.findUnique({
           where: { userId: user.id },
         })
 
-        logger.info('Resume found:', !!resume, 'parsedData:', !!resume?.parsedData)
+        logger.info('Resume found:', { hasResume: !!resume, hasParsedData: !!resume?.parsedData })
 
         if (resume?.parsedData) {
           resumeContext = formatResumeForContext(resume.parsedData as ParsedResume)
-          logger.info('Resume context generated:', resumeContext?.substring(0, 200))
+          logger.info('Resume context generated:', { preview: resumeContext?.substring(0, 200) })
         }
       }
     }

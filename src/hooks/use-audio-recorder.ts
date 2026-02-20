@@ -66,7 +66,7 @@ export function useAudioRecorder() {
       streamRef.current = stream
 
       const mimeType = getSupportedMimeType()
-      logger.info('Recording with mimeType:', mimeType)
+      console.log('Recording with mimeType:', mimeType)
 
       const mediaRecorder = new MediaRecorder(stream, {
         mimeType,
@@ -89,7 +89,7 @@ export function useAudioRecorder() {
 
       setState('recording')
     } catch (err: any) {
-      logger.error('Failed to start recording:', err)
+      console.error('Failed to start recording:', err)
       setError(err.message || 'Could not access microphone')
       setState('idle')
     }
@@ -118,7 +118,7 @@ export function useAudioRecorder() {
         }
 
         if (chunksRef.current.length === 0) {
-          logger.error('No audio chunks recorded')
+          console.error('No audio chunks recorded')
           setError('No audio recorded')
           setState('idle')
           resolve(null)
@@ -129,7 +129,7 @@ export function useAudioRecorder() {
         const mimeType = mediaRecorder.mimeType || 'audio/webm'
         const audioBlob = new Blob(chunksRef.current, { type: mimeType })
 
-        logger.info('Recorded audio:', {
+        console.log('Recorded audio:', {
           size: audioBlob.size,
           type: audioBlob.type,
           chunks: chunksRef.current.length,

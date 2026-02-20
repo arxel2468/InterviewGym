@@ -1,8 +1,10 @@
 // src/hooks/use-session-storage.ts
 
+'use client'
+
 import { useState, useEffect, useCallback } from 'react'
 
-type Message = {
+type StoredMessage = {
   role: 'interviewer' | 'candidate'
   content: string
   timestamp: string
@@ -11,17 +13,16 @@ type Message = {
 
 type SessionState = {
   sessionId: string
-  messages: Message[]
+  messages: StoredMessage[]
   lastUpdated: string
 }
 
 const STORAGE_KEY = 'interviewgym_session'
-const EXPIRY_MS = 2 * 60 * 60 * 1000 // 2 hours
+const EXPIRY_MS = 2 * 60 * 60 * 1000
 
 export function useSessionStorage(sessionId: string) {
   const [isRestored, setIsRestored] = useState(false)
 
-  // Get saved state
   const getSavedState = useCallback((): SessionState | null => {
     if (typeof window === 'undefined') return null
 
@@ -31,10 +32,8 @@ export function useSessionStorage(sessionId: string) {
 
       const state: SessionState = JSON.parse(saved)
 
-      // Check if same session
       if (state.sessionId !== sessionId) return null
 
-      // Check if expired
       const lastUpdated = new Date(state.lastUpdated).getTime()
       if (Date.now() - lastUpdated > EXPIRY_MS) {
         localStorage.removeItem(STORAGE_KEY)
@@ -47,41 +46,50 @@ export function useSessionStorage(sessionId: string) {
     }
   }, [sessionId])
 
-  // Save state
-  const saveState = useCallback((messages: Message[]) => {
-    if (typeof window === 'undefined') return
+  const saveState = useCallback(
+    (messages: { role: string; content: string; timestamp: Date; durationMs?: number }[]) => {
+      if (typeof window === 'undefined') return
 
-    const state: SessionState = {
-      sessionId,
-      messages: messages.map(m => ({
-        ...m,
-        timestamp: m.timestamp instanceof Date ? m.timestamp.toISOString() : m.timestamp,
-      })),
-      lastUpdated: new Date().toISOString(),
-    }
+      const state: SessionState = {
+        sessionId,
+        messages: messages.map((m) => ({
+          role: m.role as 'interviewer' | 'candidate',
+          content: m.content,
+          timestamp: m.timestamp.toISOString(),
+          durationMs: m.durationMs,
+        })),
+        lastUpdated: new Date().toISOString(),
+      }
 
-    try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(state))
-    } catch {
-      // Storage full or unavailable
-    }
-  }, [sessionId])
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(state))
+      } catch {
+        // Storage full or unavailable
+      }
+    },
+    [sessionId]
+  )
 
-  // Clear state
   const clearState = useCallback(() => {
     if (typeof window === 'undefined') return
     localStorage.removeItem(STORAGE_KEY)
   }, [])
 
-  // Restore messages
-  const restoreMessages = useCallback((): Message[] | null => {
+  const restoreMessages = useCallback((): {
+    role: 'interviewer' | 'candidate'
+    content: string
+    timestamp: Date
+    durationMs?: number
+  }[] | null => {
     const saved = getSavedState()
     if (!saved) return null
 
-    return saved.messages.map(m => ({
-      ...m,
+    return saved.messages.map((m) => ({
+      role: m.role,
+      content: m.content,
       timestamp: new Date(m.timestamp),
-    })) as Message[]
+      durationMs: m.durationMs,
+    }))
   }, [getSavedState])
 
   useEffect(() => {

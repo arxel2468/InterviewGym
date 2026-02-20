@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { getModelRankings, forceRefreshCache } from '@/lib/groq/models'
+import { createClient } from '@/lib/supabase/server'
 
 // GET: Retrieve current model rankings
 export async function GET() {

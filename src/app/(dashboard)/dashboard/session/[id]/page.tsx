@@ -2,6 +2,7 @@ import { requireAuth } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { notFound, redirect } from 'next/navigation'
 import { InterviewSession } from '@/components/session/interview-session'
+import { logger } from '@/lib/logger'
 
 interface PageProps {
   params: Promise<{ id: string }>

@@ -4,6 +4,7 @@ import { prisma } from '@/lib/prisma'
 import { generateFeedback, Difficulty } from '@/lib/groq/interviewer'
 import { analyzeText, estimatePauses } from '@/lib/utils/metrics'
 import { z } from 'zod'
+import { logger } from '@/lib/logger'
 
 const completeSessionSchema = z.object({
   conversationHistory: z.array(

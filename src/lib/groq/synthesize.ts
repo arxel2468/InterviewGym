@@ -32,7 +32,7 @@ export function splitForStreaming(text: string): { first: string; rest: string |
   const cleaned = sanitizeForTTS(text)
 
   // Find first sentence boundary
-  const match = cleaned.match(/^(.+?[.!?])\s+(.+)$/s)
+  const match = cleaned.match(/^(.+?[.!?])\s+([\s\S]+)$/)
 
   if (match && match[1].length >= 20) {
     return { first: match[1].trim(), rest: match[2].trim() }

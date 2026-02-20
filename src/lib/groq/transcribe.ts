@@ -1,5 +1,6 @@
 import { getGroqClient } from './client'
 import { executeWithFallback } from './fallback'
+import { logger } from '@/lib/logger'
 
 export type TranscriptionResult = {
   text: string

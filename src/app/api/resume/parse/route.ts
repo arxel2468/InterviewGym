@@ -3,6 +3,7 @@ import { createClient } from '@/lib/supabase/server'
 import { prisma } from '@/lib/prisma'
 import { parseResume } from '@/lib/groq/resume-parser'
 import { z } from 'zod'
+import { logger } from '@/lib/logger'
 
 const schema = z.object({
   text: z.string().min(100, 'Resume text too short - please paste more content').max(20000, 'Resume text too long'),
