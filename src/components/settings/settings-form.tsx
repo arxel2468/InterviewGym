@@ -13,12 +13,19 @@ import {
   Briefcase, 
   Trash2,
   AlertTriangle,
-  Save
+  Save,
+  CreditCard
 } from 'lucide-react'
 
 interface SettingsFormProps {
   user: User
+  subscription?: {
+    plan: string
+    status: string
+    currentPeriodEnd: Date
+  } | null
 }
+
 
 const ROLES = [
   { value: 'frontend', label: 'Frontend Developer' },
@@ -36,6 +43,31 @@ const TIMELINES = [
   { value: '2_4_weeks', label: '2-4 weeks' },
   { value: 'exploring', label: 'Just exploring' },
 ]
+
+
+const [isCancelling, setIsCancelling] = useState(false)
+
+const handleCancelSubscription = async () => {
+  if (!confirm('Are you sure? You will lose access to premium features at the end of your billing period.')) {
+    return
+  }
+
+  setIsCancelling(true)
+  try {
+    const response = await fetch('/api/payment/cancel', {
+      method: 'POST',
+    })
+
+    if (!response.ok) throw new Error('Failed to cancel')
+
+    toast.success('Subscription cancelled. Access continues until end of billing period.')
+    router.refresh()
+  } catch {
+    toast.error('Failed to cancel subscription')
+  } finally {
+    setIsCancelling(false)
+  }
+}
 
 export function SettingsForm({ user }: SettingsFormProps) {
   const router = useRouter()
@@ -207,6 +239,47 @@ export function SettingsForm({ user }: SettingsFormProps) {
           </div>
         </CardContent>
       </Card>
+
+      {/* Subscription Management */}
+      {subscription && subscription.status === 'active' && (
+        <Card className="bg-zinc-900/50 border-zinc-800">
+          <CardHeader>
+            <CardTitle className="text-lg text-white flex items-center gap-2">
+              <CreditCard className="w-5 h-5" />
+              Subscription
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-white font-medium capitalize">{subscription.plan} Plan</p>
+                <p className="text-sm text-zinc-400">
+                  Renews on{' '}
+                  {new Date(subscription.currentPeriodEnd).toLocaleDateString('en-IN', {
+                    day: 'numeric',
+                    month: 'long',
+                    year: 'numeric',
+                  })}
+                </p>
+              </div>
+              <span className="px-2 py-1 rounded-full bg-green-500/10 text-green-400 text-xs">
+                Active
+              </span>
+            </div>
+            <Button
+              variant="outline"
+              onClick={handleCancelSubscription}
+              disabled={isCancelling}
+              className="border-zinc-700 text-zinc-400 hover:text-red-400"
+            >
+              {isCancelling ? (
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+              ) : null}
+              Cancel Subscription
+            </Button>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Danger Zone */}
       <Card className="bg-zinc-900/50 border-red-900/50">

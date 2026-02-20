@@ -5,10 +5,26 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import { Plus, TrendingUp, Calendar, Clock, ArrowRight } from 'lucide-react'
-
+import { getUserPlan } from '@/lib/subscription'
 
 export default async function DashboardPage() {
   const user = await requireAuth()
+
+  const userPlan = await getUserPlan(user.id)
+
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+  const tomorrow = new Date(today)
+  tomorrow.setDate(tomorrow.getDate() + 1)
+
+  const sessionsToday = await prisma.session.count({
+    where: {
+      userId: user.id,
+      createdAt: { gte: today, lt: tomorrow },
+    },
+  })
+
+  const sessionsRemaining = Math.max(0, userPlan.sessionsPerDay - sessionsToday)
 
   if (!user.onboardingComplete) {
     redirect('/onboarding')
@@ -22,6 +38,8 @@ export default async function DashboardPage() {
     },
     orderBy: { startedAt: 'desc' },
   })
+
+
 
   const recentSessions = await prisma.session.findMany({
     where: { userId: user.id, status: 'completed' },
@@ -71,6 +89,29 @@ export default async function DashboardPage() {
           </Button>
         </Link>
       </div>
+
+      {/* User Plan */}
+      {userPlan.plan === 'free' && (
+      <Card className="bg-gradient-to-r from-violet-500/10 to-blue-500/10 border-violet-500/20">
+        <CardContent className="py-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-white font-medium">
+                Free Plan — {sessionsRemaining} of {userPlan.sessionsPerDay} sessions left today
+              </p>
+              <p className="text-sm text-zinc-400">
+                Upgrade for more sessions and all interview types
+              </p>
+            </div>
+            <Link href="/pricing">
+              <Button size="sm" className="bg-gradient-primary hover:opacity-90">
+                Upgrade
+              </Button>
+            </Link>
+          </div>
+        </CardContent>
+      </Card>
+    )}
 
 
       {/* Stats Grid */}

@@ -1,16 +1,15 @@
-// src/components/pricing/pricing-cards.tsx
 'use client'
 
 import { useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Check, Loader2, Zap, GraduationCap, Rocket } from 'lucide-react'
+import { Check, Loader2, Zap, GraduationCap, Rocket, X } from 'lucide-react'
 import { toast } from 'sonner'
 
-declare global {
-  interface Window {
-    Razorpay: any
-  }
+interface PricingCardsProps {
+  isLoggedIn: boolean
+  currentPlan: string
 }
 
 const PLANS = [
@@ -26,10 +25,11 @@ const PLANS = [
       'Basic feedback & scores',
       'Browser voice',
     ],
-    limitations: [
-      'No technical/HR interviews',
-      'No resume-based questions',
-      'No model answers',
+    excluded: [
+      'Technical/HR/System Design interviews',
+      'Resume-based questions',
+      'Natural AI voice',
+      'Model answers',
     ],
   },
   {
@@ -46,8 +46,9 @@ const PLANS = [
       'Natural AI voice',
       'Resume-based questions',
       'Job description mode',
+      'English fluency analysis',
     ],
-    limitations: [],
+    excluded: [],
   },
   {
     id: 'pro',
@@ -60,20 +61,33 @@ const PLANS = [
       'Everything in Student',
       'Priority voice (faster)',
       'Progress analytics',
-      'Weekly email reports',
       'Priority support',
     ],
-    limitations: [],
+    excluded: [],
   },
 ]
 
-export function PricingCards() {
+export function PricingCards({ isLoggedIn, currentPlan }: PricingCardsProps) {
+  const router = useRouter()
   const [loading, setLoading] = useState<string | null>(null)
 
-
   const handleSubscribe = async (planId: string) => {
+    // Free plan — just go to signup or dashboard
     if (planId === 'free') {
-      window.location.href = '/login'
+      router.push(isLoggedIn ? '/dashboard' : '/login')
+      return
+    }
+
+    // Must be logged in to pay
+    if (!isLoggedIn) {
+      toast.info('Please sign in first to subscribe')
+      router.push(`/login`)
+      return
+    }
+
+    // Already on this plan
+    if (currentPlan === planId) {
+      toast.info("You're already on this plan!")
       return
     }
 
@@ -86,28 +100,46 @@ export function PricingCards() {
         body: JSON.stringify({ plan: planId }),
       })
 
+      const data = await response.json()
+
       if (response.status === 401) {
-        // Not logged in — redirect to login with return URL
-        window.location.href = `/login?redirect=/pricing&plan=${planId}`
+        toast.error('Please sign in first')
+        router.push('/login')
+        return
+      }
+
+      if (response.status === 409) {
+        toast.info('You already have an active subscription')
+        router.push('/dashboard')
         return
       }
 
       if (!response.ok) {
-        const data = await response.json()
         throw new Error(data.error || 'Failed to create subscription')
       }
 
-      const data = await response.json()
+      // Check if Razorpay is loaded
+      if (typeof window === 'undefined' || !window.Razorpay) {
+        // Try loading it
+        await new Promise<void>((resolve, reject) => {
+          const script = document.createElement('script')
+          script.src = 'https://checkout.razorpay.com/v1/checkout.js'
+          script.onload = () => resolve()
+          script.onerror = () => reject(new Error('Failed to load payment system'))
+          document.body.appendChild(script)
+        })
+      }
 
-      const options: RazorpayOptions = {
+      const rzp = new window.Razorpay({
         key: data.razorpayKeyId,
         subscription_id: data.subscriptionId,
         name: 'InterviewGym',
         description: data.name,
-        handler: async (response: RazorpayResponse) => {
-          // Verify payment on server
+        prefill: data.prefill,
+        handler: async (response) => {
+          // Verify on server
           try {
-            await fetch('/api/payment/verify', {
+            const verifyRes = await fetch('/api/payment/verify', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({
@@ -116,102 +148,148 @@ export function PricingCards() {
                 razorpay_signature: response.razorpay_signature,
               }),
             })
+
+            if (verifyRes.ok) {
+              toast.success('Subscription activated! 🎉')
+            } else {
+              // Payment went through but verification failed
+              // Webhook will handle it
+              toast.success('Payment received! Your plan will activate shortly.')
+            }
           } catch {
-            // Webhook will handle it even if verify fails
+            toast.success('Payment received! Your plan will activate shortly.')
           }
-          toast.success('Subscription activated! 🎉')
-          window.location.href = '/dashboard'
+
+          router.push('/dashboard')
+          router.refresh()
         },
         theme: { color: '#8b5cf6' },
         modal: {
-          ondismiss: () => setLoading(null),
+          ondismiss: () => {
+            setLoading(null)
+          },
         },
-      }
+      })
 
-      const rzp = new window.Razorpay(options)
+      rzp.on('payment.failed', (response: unknown) => {
+        setLoading(null)
+        const failedResponse = response as { error?: { description?: string } }
+        const errorMessage = failedResponse?.error?.description || 'Payment failed'
+        toast.error(errorMessage)
+      })
+
       rzp.open()
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Payment failed')
-    } finally {
+      toast.error(error instanceof Error ? error.message : 'Something went wrong')
       setLoading(null)
     }
   }
 
   return (
-    <>
-      {/* Razorpay script */}
-      <script src="https://checkout.razorpay.com/v1/checkout.js" async />
+    <div className="grid md:grid-cols-3 gap-6 max-w-5xl mx-auto">
+      {PLANS.map((plan) => {
+        const Icon = plan.icon
+        const isPopular = 'popular' in plan && plan.popular
+        const isCurrentPlan = currentPlan === plan.id
+        const isDowngrade =
+          (currentPlan === 'pro' && plan.id !== 'pro') ||
+          (currentPlan === 'student' && plan.id === 'free')
 
-      <div className="grid md:grid-cols-3 gap-6 max-w-5xl mx-auto">
-        {PLANS.map((plan) => {
-          const Icon = plan.icon
-          const isPopular = 'popular' in plan && plan.popular
+        return (
+          <Card
+            key={plan.id}
+            className={`relative bg-zinc-900/50 ${
+              isPopular
+                ? 'border-violet-500 ring-1 ring-violet-500/20'
+                : isCurrentPlan
+                  ? 'border-green-500/50'
+                  : 'border-zinc-800'
+            }`}
+          >
+            {isPopular && !isCurrentPlan && (
+              <div className="absolute -top-3 left-1/2 -translate-x-1/2">
+                <span className="px-3 py-1 text-xs font-medium bg-violet-600 text-white rounded-full">
+                  Most Popular
+                </span>
+              </div>
+            )}
 
-          return (
-            <Card
-              key={plan.id}
-              className={`relative bg-zinc-900/50 border-zinc-800 ${
-                isPopular ? 'border-violet-500 ring-1 ring-violet-500/20' : ''
-              }`}
-            >
-              {isPopular && (
-                <div className="absolute -top-3 left-1/2 -translate-x-1/2">
-                  <span className="px-3 py-1 text-xs font-medium bg-violet-600 text-white rounded-full">
-                    Most Popular
-                  </span>
-                </div>
-              )}
+            {isCurrentPlan && (
+              <div className="absolute -top-3 left-1/2 -translate-x-1/2">
+                <span className="px-3 py-1 text-xs font-medium bg-green-600 text-white rounded-full">
+                  Current Plan
+                </span>
+              </div>
+            )}
 
-              <CardHeader className="text-center pb-4">
-                <div className="w-12 h-12 rounded-lg bg-violet-500/10 flex items-center justify-center mx-auto mb-3">
-                  <Icon className="w-6 h-6 text-violet-400" />
-                </div>
-                <CardTitle className="text-xl text-white">{plan.name}</CardTitle>
-                <p className="text-sm text-zinc-400">{plan.description}</p>
-                <div className="mt-4">
-                  {plan.price === 0 ? (
-                    <span className="text-3xl font-bold text-white">Free</span>
-                  ) : (
-                    <div>
-                      <span className="text-3xl font-bold text-white">₹{plan.price}</span>
-                      <span className="text-zinc-400 text-sm">/month</span>
-                    </div>
-                  )}
-                </div>
-              </CardHeader>
+            <CardHeader className="text-center pb-4">
+              <div className="w-12 h-12 rounded-lg bg-violet-500/10 flex items-center justify-center mx-auto mb-3">
+                <Icon className="w-6 h-6 text-violet-400" />
+              </div>
+              <CardTitle className="text-xl text-white">{plan.name}</CardTitle>
+              <p className="text-sm text-zinc-400">{plan.description}</p>
+              <div className="mt-4">
+                {plan.price === 0 ? (
+                  <span className="text-3xl font-bold text-white">Free</span>
+                ) : (
+                  <div>
+                    <span className="text-3xl font-bold text-white">₹{plan.price}</span>
+                    <span className="text-zinc-400 text-sm">/month</span>
+                  </div>
+                )}
+              </div>
+            </CardHeader>
 
-              <CardContent className="space-y-4">
-                <ul className="space-y-2">
-                  {plan.features.map((feature, i) => (
+            <CardContent className="space-y-4">
+              {/* Included features */}
+              <ul className="space-y-2">
+                {plan.features.map((feature, i) => (
+                  <li key={i} className="flex items-start gap-2 text-sm">
+                    <Check className="w-4 h-4 text-green-500 mt-0.5 flex-shrink-0" />
+                    <span className="text-zinc-300">{feature}</span>
+                  </li>
+                ))}
+              </ul>
+
+              {/* Excluded features (for free plan) */}
+              {'excluded' in plan && plan.excluded.length > 0 && (
+                <ul className="space-y-2 pt-2 border-t border-zinc-800">
+                  {plan.excluded.map((feature, i) => (
                     <li key={i} className="flex items-start gap-2 text-sm">
-                      <Check className="w-4 h-4 text-green-500 mt-0.5 flex-shrink-0" />
-                      <span className="text-zinc-300">{feature}</span>
+                      <X className="w-4 h-4 text-zinc-600 mt-0.5 flex-shrink-0" />
+                      <span className="text-zinc-500">{feature}</span>
                     </li>
                   ))}
                 </ul>
+              )}
 
-                <Button
-                  onClick={() => handleSubscribe(plan.id)}
-                  disabled={loading === plan.id}
-                  className={`w-full ${
-                    isPopular
+              <Button
+                onClick={() => handleSubscribe(plan.id)}
+                disabled={loading === plan.id || isCurrentPlan || isDowngrade}
+                className={`w-full ${
+                  isCurrentPlan
+                    ? 'bg-green-600/20 text-green-400 cursor-default'
+                    : isPopular
                       ? 'bg-gradient-primary hover:opacity-90'
                       : 'bg-zinc-800 hover:bg-zinc-700 text-white'
-                  }`}
-                >
-                  {loading === plan.id ? (
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                  ) : plan.price === 0 ? (
-                    'Get Started'
-                  ) : (
-                    'Subscribe'
-                  )}
-                </Button>
-              </CardContent>
-            </Card>
-          )
-        })}
-      </div>
-    </>
+                }`}
+              >
+                {loading === plan.id ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : isCurrentPlan ? (
+                  'Current Plan'
+                ) : isDowngrade ? (
+                  'Contact Support'
+                ) : plan.price === 0 ? (
+                  isLoggedIn ? 'Current Plan' : 'Get Started'
+                ) : (
+                  'Subscribe'
+                )}
+              </Button>
+            </CardContent>
+          </Card>
+        )
+      })}
+    </div>
   )
 }

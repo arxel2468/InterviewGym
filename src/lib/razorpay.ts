@@ -30,4 +30,4 @@ export const PLANS = {
   },
 } as const
 
-export type PlanType = keyof typeof PLANS | 'free'razorpay.ts
+export type PlanType = keyof typeof PLANS | 'free'

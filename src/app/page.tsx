@@ -1,19 +1,29 @@
+// src/app/page.tsx — REPLACE the navigation section at the top
+
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
-import { 
-  Mic, 
-  MessageSquare, 
-  BarChart3, 
+import { createClient } from '@/lib/supabase/server'
+import {
+  Mic,
+  MessageSquare,
+  BarChart3,
   ArrowRight,
   Zap,
   Shield,
   Clock,
   Target,
   TrendingUp,
-  Github
+  Github,
 } from 'lucide-react'
 
-export default function LandingPage() {
+export default async function LandingPage() {
+  const supabase = await createClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+
+  const isLoggedIn = !!user
+
   return (
     <div className="min-h-screen bg-[#09090B]">
       {/* Navigation */}
@@ -24,16 +34,31 @@ export default function LandingPage() {
               Interview<span className="text-gradient">Gym</span>
             </Link>
             <div className="flex items-center gap-4">
-              <Link href="/login">
+              <Link href="/pricing">
                 <Button variant="ghost" className="text-zinc-400 hover:text-white">
-                  Sign In
+                  Pricing
                 </Button>
               </Link>
-              <Link href="/login">
-                <Button className="bg-gradient-primary hover:opacity-90">
-                  Get Started
-                </Button>
-              </Link>
+              {isLoggedIn ? (
+                <Link href="/dashboard">
+                  <Button className="bg-gradient-primary hover:opacity-90">
+                    Dashboard
+                  </Button>
+                </Link>
+              ) : (
+                <>
+                  <Link href="/login">
+                    <Button variant="ghost" className="text-zinc-400 hover:text-white">
+                      Sign In
+                    </Button>
+                  </Link>
+                  <Link href="/login">
+                    <Button className="bg-gradient-primary hover:opacity-90">
+                      Get Started
+                    </Button>
+                  </Link>
+                </>
+              )}
             </div>
           </div>
         </div>

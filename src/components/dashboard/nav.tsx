@@ -13,12 +13,13 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { cn } from '@/lib/utils'
-import { Home, Plus, BarChart3, Settings, LogOut } from 'lucide-react'
+import { Home, Plus, BarChart3, Settings, LogOut, CreditCard } from 'lucide-react'
 
 const navItems = [
   { href: '/dashboard', label: 'Home', icon: Home },
   { href: '/dashboard/session/new', label: 'New Session', icon: Plus },
   { href: '/dashboard/history', label: 'History', icon: BarChart3 },
+  { href: '/pricing', label: 'Pricing', icon: CreditCard },
 ]
 
 interface DashboardNavProps {
