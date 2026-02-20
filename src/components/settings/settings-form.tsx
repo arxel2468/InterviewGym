@@ -1,4 +1,5 @@
-// src/components/settings/settings-form.tsx
+// src/components/settings/settings-form.tsx — REPLACE ENTIRE FILE
+
 'use client'
 
 import { useState } from 'react'
@@ -7,14 +8,14 @@ import { User } from '@prisma/client'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { toast } from 'sonner'
-import { 
-  Loader2, 
-  User as UserIcon, 
-  Briefcase, 
+import {
+  Loader2,
+  User as UserIcon,
+  Briefcase,
   Trash2,
   AlertTriangle,
   Save,
-  CreditCard
+  CreditCard,
 } from 'lucide-react'
 
 interface SettingsFormProps {
@@ -25,7 +26,6 @@ interface SettingsFormProps {
     currentPeriodEnd: Date
   } | null
 }
-
 
 const ROLES = [
   { value: 'frontend', label: 'Frontend Developer' },
@@ -44,37 +44,13 @@ const TIMELINES = [
   { value: 'exploring', label: 'Just exploring' },
 ]
 
-
-const [isCancelling, setIsCancelling] = useState(false)
-
-const handleCancelSubscription = async () => {
-  if (!confirm('Are you sure? You will lose access to premium features at the end of your billing period.')) {
-    return
-  }
-
-  setIsCancelling(true)
-  try {
-    const response = await fetch('/api/payment/cancel', {
-      method: 'POST',
-    })
-
-    if (!response.ok) throw new Error('Failed to cancel')
-
-    toast.success('Subscription cancelled. Access continues until end of billing period.')
-    router.refresh()
-  } catch {
-    toast.error('Failed to cancel subscription')
-  } finally {
-    setIsCancelling(false)
-  }
-}
-
-export function SettingsForm({ user }: SettingsFormProps) {
+export function SettingsForm({ user, subscription }: SettingsFormProps) {
   const router = useRouter()
   const [targetRole, setTargetRole] = useState(user.targetRole || 'fullstack')
   const [timeline, setTimeline] = useState(user.interviewTimeline || 'exploring')
   const [isSaving, setIsSaving] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
+  const [isCancelling, setIsCancelling] = useState(false)
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
 
   const handleSave = async () => {
@@ -87,13 +63,39 @@ export function SettingsForm({ user }: SettingsFormProps) {
       })
 
       if (!response.ok) throw new Error('Failed to save')
-      
+
       toast.success('Settings saved')
       router.refresh()
-    } catch (error) {
+    } catch {
       toast.error('Failed to save settings')
     } finally {
       setIsSaving(false)
+    }
+  }
+
+  const handleCancelSubscription = async () => {
+    if (
+      !confirm(
+        'Are you sure? You will lose access to premium features at the end of your billing period.'
+      )
+    ) {
+      return
+    }
+
+    setIsCancelling(true)
+    try {
+      const response = await fetch('/api/payment/cancel', {
+        method: 'POST',
+      })
+
+      if (!response.ok) throw new Error('Failed to cancel')
+
+      toast.success('Subscription cancelled. Access continues until end of billing period.')
+      router.refresh()
+    } catch {
+      toast.error('Failed to cancel subscription')
+    } finally {
+      setIsCancelling(false)
     }
   }
 
@@ -105,10 +107,10 @@ export function SettingsForm({ user }: SettingsFormProps) {
       })
 
       if (!response.ok) throw new Error('Failed to delete')
-      
+
       toast.success('Account deleted')
       router.push('/login')
-    } catch (error) {
+    } catch {
       toast.error('Failed to delete account')
       setIsDeleting(false)
     }
@@ -153,16 +155,11 @@ export function SettingsForm({ user }: SettingsFormProps) {
             <Briefcase className="w-5 h-5" />
             Interview Preferences
           </CardTitle>
-          <CardDescription>
-            These settings affect your interview questions
-          </CardDescription>
+          <CardDescription>These settings affect your interview questions</CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
-          {/* Target Role */}
           <div className="space-y-3">
-            <label className="text-sm font-medium text-zinc-300">
-              Target Role
-            </label>
+            <label className="text-sm font-medium text-zinc-300">Target Role</label>
             <div className="grid grid-cols-2 gap-2">
               {ROLES.map((role) => (
                 <button
@@ -180,11 +177,8 @@ export function SettingsForm({ user }: SettingsFormProps) {
             </div>
           </div>
 
-          {/* Timeline */}
           <div className="space-y-3">
-            <label className="text-sm font-medium text-zinc-300">
-              Interview Timeline
-            </label>
+            <label className="text-sm font-medium text-zinc-300">Interview Timeline</label>
             <div className="grid grid-cols-3 gap-2">
               {TIMELINES.map((t) => (
                 <button
@@ -202,41 +196,10 @@ export function SettingsForm({ user }: SettingsFormProps) {
             </div>
           </div>
 
-          <Button
-            onClick={handleSave}
-            disabled={isSaving}
-            className="bg-gradient-primary hover:opacity-90"
-          >
-            {isSaving ? (
-              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-            ) : (
-              <Save className="w-4 h-4 mr-2" />
-            )}
+          <Button onClick={handleSave} disabled={isSaving} className="bg-gradient-primary hover:opacity-90">
+            {isSaving ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Save className="w-4 h-4 mr-2" />}
             Save Changes
           </Button>
-        </CardContent>
-      </Card>
-
-      {/* Stats */}
-      <Card className="bg-zinc-900/50 border-zinc-800">
-        <CardHeader>
-          <CardTitle className="text-lg text-white">Your Stats</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-3 gap-4 text-center">
-            <div>
-              <p className="text-2xl font-bold text-white">{user.totalSessions}</p>
-              <p className="text-xs text-zinc-500">Total Sessions</p>
-            </div>
-            <div>
-              <p className="text-2xl font-bold text-white">{user.currentStreak}</p>
-              <p className="text-xs text-zinc-500">Current Streak</p>
-            </div>
-            <div>
-              <p className="text-2xl font-bold text-white">{user.longestStreak}</p>
-              <p className="text-xs text-zinc-500">Best Streak</p>
-            </div>
-          </div>
         </CardContent>
       </Card>
 
@@ -272,14 +235,35 @@ export function SettingsForm({ user }: SettingsFormProps) {
               disabled={isCancelling}
               className="border-zinc-700 text-zinc-400 hover:text-red-400"
             >
-              {isCancelling ? (
-                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-              ) : null}
+              {isCancelling && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
               Cancel Subscription
             </Button>
           </CardContent>
         </Card>
       )}
+
+      {/* Stats */}
+      <Card className="bg-zinc-900/50 border-zinc-800">
+        <CardHeader>
+          <CardTitle className="text-lg text-white">Your Stats</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-3 gap-4 text-center">
+            <div>
+              <p className="text-2xl font-bold text-white">{user.totalSessions}</p>
+              <p className="text-xs text-zinc-500">Total Sessions</p>
+            </div>
+            <div>
+              <p className="text-2xl font-bold text-white">{user.currentStreak}</p>
+              <p className="text-xs text-zinc-500">Current Streak</p>
+            </div>
+            <div>
+              <p className="text-2xl font-bold text-white">{user.longestStreak}</p>
+              <p className="text-xs text-zinc-500">Best Streak</p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
 
       {/* Danger Zone */}
       <Card className="bg-zinc-900/50 border-red-900/50">
@@ -310,8 +294,8 @@ export function SettingsForm({ user }: SettingsFormProps) {
           ) : (
             <div className="space-y-4">
               <p className="text-red-400">
-                Are you sure? This action cannot be undone. All your sessions, 
-                feedback, and progress will be permanently deleted.
+                Are you sure? This action cannot be undone. All your sessions, feedback, and
+                progress will be permanently deleted.
               </p>
               <div className="flex gap-3">
                 <Button

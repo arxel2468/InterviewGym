@@ -16,7 +16,8 @@ import {
   ChevronDown,
   ChevronUp,
   User,
-  BarChart3
+  BarChart3,
+  Languages
 } from 'lucide-react'
 import { useState } from 'react'
 import { getFillerAssessment, getLengthAssessment, getTimeAssessment } from '@/lib/utils/metrics'
