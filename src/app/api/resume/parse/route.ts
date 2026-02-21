@@ -21,8 +21,8 @@ export async function POST(request: Request) {
     const body = await request.json()
     const { text } = schema.parse(body)
 
-    logger.info('Parsing pasted resume, length:', text.length)
-    logger.info('First 500 chars:', text.substring(0, 500))
+    logger.info(`Parsing pasted resume, length: ${text.length}`);
+    logger.info(`First 500 chars: ${text.substring(0, 500)}`);
 
     // Parse resume with AI
     const parsedData = await parseResume(text)

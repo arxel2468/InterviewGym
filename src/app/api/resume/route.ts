@@ -3,6 +3,7 @@ import { createClient } from '@/lib/supabase/server'
 import { prisma } from '@/lib/prisma'
 import { parseResume } from '@/lib/groq/resume-parser'
 import { extractTextFromFile } from '@/lib/utils/file-parser'
+import { logger } from '@/lib/logger'
 
 export async function GET() {
   try {
@@ -19,7 +20,7 @@ export async function GET() {
 
     return NextResponse.json({ resume })
   } catch (error) {
-    logger.error('Get resume error:', error)
+    logger.error('Get resume error:', { error: String(error) })
     return NextResponse.json({ error: 'Failed to get resume' }, { status: 500 })
   }
 }
@@ -69,7 +70,7 @@ export async function POST(request: Request) {
       }, { status: 400 })
     }
 
-    logger.info('Extracted text length:', rawText.length)
+    logger.info('Extracted text', { length: rawText.length })
 
     if (rawText.length < 100) {
       return NextResponse.json({
@@ -105,8 +106,8 @@ export async function POST(request: Request) {
 
     return NextResponse.json({ resume, parsed: parsedData })
   } catch (error: any) {
-    logger.error('Upload resume error:', error)
-    return NextResponse.json({
+    logger.error('Upload resume error', { error: String(error) })
+      return NextResponse.json({
       error: error.message || 'Failed to process resume'
     }, { status: 500 })
   }
@@ -127,7 +128,7 @@ export async function DELETE() {
 
     return NextResponse.json({ success: true })
   } catch (error) {
-    logger.error('Delete resume error:', error)
+    logger.error('Delete resume error', { error: String(error) })
     return NextResponse.json({ error: 'Failed to delete resume' }, { status: 500 })
   }
 }

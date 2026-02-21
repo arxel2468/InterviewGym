@@ -31,10 +31,7 @@ export async function transcribeAudio(
   }
 
   // Log for debugging
-  logger.info('Transcribing audio:', {
-    size: audioBlob.size,
-    type: audioBlob.type,
-  })
+  logger.info('Transcribing audio', { size: audioBlob.size, type: audioBlob.type })
 
   // Determine file extension based on mime type
   let extension = 'webm'
@@ -65,7 +62,7 @@ export async function transcribeAudio(
         throw new Error('Empty transcription result')
       }
 
-      logger.info('Transcription successful:', transcription.text.substring(0, 50))
+      logger.info('Transcription successful', { preview: transcription.text.substring(0, 50) })
 
       return {
         text: transcription.text,
