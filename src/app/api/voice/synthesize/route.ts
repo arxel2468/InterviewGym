@@ -1,6 +1,10 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
-import { synthesizeChunk, splitForStreaming, shouldUseBrowserFallback } from '@/lib/groq/synthesize'
+import {
+  synthesizeChunk,
+  splitForStreaming,
+  shouldUseBrowserFallback,
+} from '@/lib/groq/synthesize'
 import { logger } from '@/lib/logger'
 import { z } from 'zod'
 
@@ -12,7 +16,9 @@ const requestSchema = z.object({
 export async function POST(request: Request) {
   try {
     const supabase = await createClient()
-    const { data: { user } } = await supabase.auth.getUser()
+    const {
+      data: { user },
+    } = await supabase.auth.getUser()
 
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
@@ -65,7 +71,8 @@ export async function POST(request: Request) {
       fallbackLevel: result.fallbackLevel,
     })
   } catch (error: unknown) {
-    const message = error instanceof z.ZodError ? 'Invalid request' : 'Synthesis failed'
+    const message =
+      error instanceof z.ZodError ? 'Invalid request' : 'Synthesis failed'
     logger.error('Synthesis route error', { error: String(error) })
 
     return NextResponse.json({

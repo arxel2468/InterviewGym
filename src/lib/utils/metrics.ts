@@ -1,8 +1,16 @@
 // Common filler words in English
 const FILLER_WORDS = [
-  'um', 'uh', 'uhh', 'umm', 'ummm',
-  'er', 'err', 'errr',
-  'ah', 'ahh', 'ahhh',
+  'um',
+  'uh',
+  'uhh',
+  'umm',
+  'ummm',
+  'er',
+  'err',
+  'errr',
+  'ah',
+  'ahh',
+  'ahhh',
   'like',
   'you know',
   'i mean',
@@ -81,11 +89,10 @@ export function analyzeText(text: string): TextMetrics {
   }
 
   // Count sentences
-  const sentences = text.split(/[.!?]+/).filter(s => s.trim().length > 0)
+  const sentences = text.split(/[.!?]+/).filter((s) => s.trim().length > 0)
   const sentenceCount = sentences.length
-  const averageWordsPerSentence = sentenceCount > 0
-    ? Math.round(wordCount / sentenceCount)
-    : 0
+  const averageWordsPerSentence =
+    sentenceCount > 0 ? Math.round(wordCount / sentenceCount) : 0
 
   // Detect STAR structure
   const starStructureDetected = detectStarStructure(normalizedText)
@@ -111,29 +118,57 @@ export function analyzeText(text: string): TextMetrics {
  */
 function detectStarStructure(text: string): boolean {
   const situationIndicators = [
-    'situation was', 'context was', 'background', 'we were',
-    'i was working', 'at the time', 'this happened when',
+    'situation was',
+    'context was',
+    'background',
+    'we were',
+    'i was working',
+    'at the time',
+    'this happened when',
   ]
 
   const taskIndicators = [
-    'task was', 'my role was', 'responsible for', 'needed to',
-    'had to', 'goal was', 'objective',
+    'task was',
+    'my role was',
+    'responsible for',
+    'needed to',
+    'had to',
+    'goal was',
+    'objective',
   ]
 
   const actionIndicators = [
-    'i did', 'i took', 'i decided', 'i implemented', 'i created',
-    'i led', 'i organized', 'my approach', 'first i', 'then i', 'next i',
+    'i did',
+    'i took',
+    'i decided',
+    'i implemented',
+    'i created',
+    'i led',
+    'i organized',
+    'my approach',
+    'first i',
+    'then i',
+    'next i',
   ]
 
   const resultIndicators = [
-    'result was', 'outcome was', 'ended up', 'led to', 'resulted in',
-    'achieved', 'improved', 'reduced', 'increased', 'saved', 'learned',
+    'result was',
+    'outcome was',
+    'ended up',
+    'led to',
+    'resulted in',
+    'achieved',
+    'improved',
+    'reduced',
+    'increased',
+    'saved',
+    'learned',
   ]
 
-  const hasSituation = situationIndicators.some(i => text.includes(i))
-  const hasTask = taskIndicators.some(i => text.includes(i))
-  const hasAction = actionIndicators.some(i => text.includes(i))
-  const hasResult = resultIndicators.some(i => text.includes(i))
+  const hasSituation = situationIndicators.some((i) => text.includes(i))
+  const hasTask = taskIndicators.some((i) => text.includes(i))
+  const hasAction = actionIndicators.some((i) => text.includes(i))
+  const hasResult = resultIndicators.some((i) => text.includes(i))
 
   const components = [hasSituation, hasTask, hasAction, hasResult]
   return components.filter(Boolean).length >= 3
@@ -147,12 +182,14 @@ export function estimatePauses(text: string): number {
   const dashes = (text.match(/—|--/g) || []).length
 
   const sentences = text.split(/[.!?]+/)
-  const fillerStarts = sentences.filter(s => {
+  const fillerStarts = sentences.filter((s) => {
     const trimmed = s.trim().toLowerCase()
-    return trimmed.startsWith('um') ||
-           trimmed.startsWith('uh') ||
-           trimmed.startsWith('so,') ||
-           trimmed.startsWith('well,')
+    return (
+      trimmed.startsWith('um') ||
+      trimmed.startsWith('uh') ||
+      trimmed.startsWith('so,') ||
+      trimmed.startsWith('well,')
+    )
   }).length
 
   return ellipses + dashes + fillerStarts
@@ -161,12 +198,15 @@ export function estimatePauses(text: string): number {
 /**
  * Get assessment text for filler word ratio
  */
-export function getFillerAssessment(fillerCount: number, totalWords: number): string {
+export function getFillerAssessment(
+  fillerCount: number,
+  totalWords: number
+): string {
   if (totalWords === 0) return ''
   const ratio = fillerCount / totalWords
   if (ratio < 0.02) return 'Excellent'
   if (ratio < 0.05) return 'Good'
-  if (ratio < 0.10) return 'Needs work'
+  if (ratio < 0.1) return 'Needs work'
   return 'High - practice reducing'
 }
 

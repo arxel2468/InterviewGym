@@ -22,7 +22,9 @@ export async function POST(
 ) {
   try {
     const supabase = await createClient()
-    const { data: { user } } = await supabase.auth.getUser()
+    const {
+      data: { user },
+    } = await supabase.auth.getUser()
 
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
@@ -42,11 +44,16 @@ export async function POST(
     }
 
     if (session.status === 'completed') {
-      return NextResponse.json({ error: 'Session already completed' }, { status: 400 })
+      return NextResponse.json(
+        { error: 'Session already completed' },
+        { status: 400 }
+      )
     }
 
     // Analyze candidate messages
-    const candidateMessages = conversationHistory.filter((m) => m.role === 'candidate')
+    const candidateMessages = conversationHistory.filter(
+      (m) => m.role === 'candidate'
+    )
 
     // Aggregate metrics
     let totalFillerWords = 0
@@ -77,7 +84,7 @@ export async function POST(
     // Save messages with analysis
     await prisma.message.createMany({
       data: conversationHistory.map((msg, index) => {
-        const analysis = messageAnalyses.find(a => a.content === msg.content)
+        const analysis = messageAnalyses.find((a) => a.content === msg.content)
 
         return {
           sessionId: id,
@@ -85,9 +92,11 @@ export async function POST(
           content: msg.content,
           durationMs: msg.durationMs,
           orderIndex: index,
-          fillerWordCount: msg.role === 'candidate' ? (analysis?.fillerWordCount ?? 0) : null,
+          fillerWordCount:
+            msg.role === 'candidate' ? (analysis?.fillerWordCount ?? 0) : null,
           pauseCount: msg.role === 'candidate' ? (analysis?.pauses ?? 0) : null,
-          wordCount: msg.role === 'candidate' ? (analysis?.wordCount ?? 0) : null,
+          wordCount:
+            msg.role === 'candidate' ? (analysis?.wordCount ?? 0) : null,
           longestPauseMs: null,
         }
       }),
@@ -100,35 +109,44 @@ export async function POST(
     )
 
     // Handle feedback generation failure
-    const feedback = 'success' in feedbackResult && feedbackResult.success === false
-      ? {
-          strengths: ['Session completed'],
-          improvements: ['Unable to generate detailed analysis'],
-          suggestions: ['Try another session for feedback'],
-          overallScore: 5,
-          clarityScore: 5,
-          structureScore: 5,
-          relevanceScore: 5,
-          confidenceScore: 5,
-          summary: 'We had trouble analyzing this session. Your responses were recorded.',
-        }
-      : feedbackResult as {
-          strengths: string[]
-          improvements: string[]
-          suggestions: string[]
-          overallScore: number
-          clarityScore: number
-          structureScore: number
-          relevanceScore: number
-          confidenceScore: number
-          summary: string
-        }
+    const feedback =
+      'success' in feedbackResult && feedbackResult.success === false
+        ? {
+            strengths: ['Session completed'],
+            improvements: ['Unable to generate detailed analysis'],
+            suggestions: ['Try another session for feedback'],
+            overallScore: 5,
+            clarityScore: 5,
+            structureScore: 5,
+            relevanceScore: 5,
+            confidenceScore: 5,
+            summary:
+              'We had trouble analyzing this session. Your responses were recorded.',
+          }
+        : (feedbackResult as {
+            strengths: string[]
+            improvements: string[]
+            suggestions: string[]
+            overallScore: number
+            clarityScore: number
+            structureScore: number
+            relevanceScore: number
+            confidenceScore: number
+            summary: string
+          })
 
     // Calculate timing metrics
-    const totalDuration = conversationHistory.reduce((sum, m) => sum + m.durationMs, 0)
-    const averageResponseMs = candidateMessages.length > 0
-      ? Math.round(candidateMessages.reduce((sum, m) => sum + m.durationMs, 0) / candidateMessages.length)
-      : 0
+    const totalDuration = conversationHistory.reduce(
+      (sum, m) => sum + m.durationMs,
+      0
+    )
+    const averageResponseMs =
+      candidateMessages.length > 0
+        ? Math.round(
+            candidateMessages.reduce((sum, m) => sum + m.durationMs, 0) /
+              candidateMessages.length
+          )
+        : 0
 
     // Save metrics
     await prisma.metrics.create({

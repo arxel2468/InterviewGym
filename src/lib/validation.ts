@@ -9,7 +9,9 @@ import { NextResponse } from 'next/server'
 export async function validateRequest<T>(
   request: Request,
   schema: z.ZodSchema<T>
-): Promise<{ success: true; data: T } | { success: false; error: NextResponse }> {
+): Promise<
+  { success: true; data: T } | { success: false; error: NextResponse }
+> {
   try {
     const body = await request.json()
     const data = schema.parse(body)
@@ -22,7 +24,7 @@ export async function validateRequest<T>(
           {
             success: false,
             error: 'Validation failed',
-            details: error.errors.map(e => ({
+            details: error.errors.map((e) => ({
               field: e.path.join('.'),
               message: e.message,
             })),

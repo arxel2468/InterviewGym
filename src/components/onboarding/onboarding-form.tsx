@@ -5,7 +5,18 @@ import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { toast } from 'sonner'
-import { Loader2, Code, Palette, Server, Layers, Database, Rocket, Zap, Calendar, Compass } from 'lucide-react'
+import {
+  Loader2,
+  Code,
+  Palette,
+  Server,
+  Layers,
+  Database,
+  Rocket,
+  Zap,
+  Calendar,
+  Compass,
+} from 'lucide-react'
 
 const roleOptions = [
   { value: 'software_engineer', label: 'Software Engineer', icon: Code },
@@ -17,9 +28,24 @@ const roleOptions = [
 ]
 
 const timelineOptions = [
-  { value: 'this_week', label: 'This week', description: 'Intensive preparation', icon: Zap },
-  { value: '2_4_weeks', label: '2-4 weeks', description: 'Steady practice', icon: Calendar },
-  { value: 'exploring', label: 'Just exploring', description: 'No rush', icon: Compass },
+  {
+    value: 'this_week',
+    label: 'This week',
+    description: 'Intensive preparation',
+    icon: Zap,
+  },
+  {
+    value: '2_4_weeks',
+    label: '2-4 weeks',
+    description: 'Steady practice',
+    icon: Calendar,
+  },
+  {
+    value: 'exploring',
+    label: 'Just exploring',
+    description: 'No rush',
+    icon: Compass,
+  },
 ]
 
 interface OnboardingFormProps {
@@ -59,8 +85,8 @@ export function OnboardingForm({ userId }: OnboardingFormProps) {
   }
 
   return (
-    <Card className="bg-zinc-900/50 border-zinc-800 backdrop-blur-sm">
-      <CardContent className="pt-6 space-y-8">
+    <Card className="border-zinc-800 bg-zinc-900/50 backdrop-blur-sm">
+      <CardContent className="space-y-8 pt-6">
         {/* Role Selection */}
         <div className="space-y-3">
           <label className="text-sm font-medium text-zinc-300">
@@ -73,16 +99,22 @@ export function OnboardingForm({ userId }: OnboardingFormProps) {
                 <button
                   key={option.value}
                   onClick={() => setTargetRole(option.value)}
-                  className={`p-4 rounded-lg border text-left transition-all ${
+                  className={`rounded-lg border p-4 text-left transition-all ${
                     targetRole === option.value
                       ? 'border-violet-500 bg-violet-500/10'
-                      : 'border-zinc-800 hover:border-zinc-700 bg-zinc-800/30'
+                      : 'border-zinc-800 bg-zinc-800/30 hover:border-zinc-700'
                   }`}
                 >
-                  <Icon className={`w-5 h-5 mb-2 ${
-                    targetRole === option.value ? 'text-violet-400' : 'text-zinc-400'
-                  }`} />
-                  <p className="font-medium text-white text-sm">{option.label}</p>
+                  <Icon
+                    className={`mb-2 h-5 w-5 ${
+                      targetRole === option.value
+                        ? 'text-violet-400'
+                        : 'text-zinc-400'
+                    }`}
+                  />
+                  <p className="text-sm font-medium text-white">
+                    {option.label}
+                  </p>
                 </button>
               )
             })}
@@ -101,19 +133,27 @@ export function OnboardingForm({ userId }: OnboardingFormProps) {
                 <button
                   key={option.value}
                   onClick={() => setTimeline(option.value)}
-                  className={`w-full p-4 rounded-lg border text-left transition-all ${
+                  className={`w-full rounded-lg border p-4 text-left transition-all ${
                     timeline === option.value
                       ? 'border-violet-500 bg-violet-500/10'
-                      : 'border-zinc-800 hover:border-zinc-700 bg-zinc-800/30'
+                      : 'border-zinc-800 bg-zinc-800/30 hover:border-zinc-700'
                   }`}
                 >
                   <div className="flex items-center gap-3">
-                    <Icon className={`w-5 h-5 ${
-                      timeline === option.value ? 'text-violet-400' : 'text-zinc-400'
-                    }`} />
+                    <Icon
+                      className={`h-5 w-5 ${
+                        timeline === option.value
+                          ? 'text-violet-400'
+                          : 'text-zinc-400'
+                      }`}
+                    />
                     <div>
-                      <p className="font-medium text-white text-sm">{option.label}</p>
-                      <p className="text-xs text-zinc-500">{option.description}</p>
+                      <p className="text-sm font-medium text-white">
+                        {option.label}
+                      </p>
+                      <p className="text-xs text-zinc-500">
+                        {option.description}
+                      </p>
                     </div>
                   </div>
                 </button>
@@ -126,11 +166,11 @@ export function OnboardingForm({ userId }: OnboardingFormProps) {
         <Button
           onClick={handleSubmit}
           disabled={!targetRole || !timeline || loading}
-          className="w-full bg-gradient-primary hover:opacity-90 transition-opacity h-11"
+          className="bg-gradient-primary h-11 w-full transition-opacity hover:opacity-90"
         >
           {loading ? (
             <>
-              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
               Setting up...
             </>
           ) : (

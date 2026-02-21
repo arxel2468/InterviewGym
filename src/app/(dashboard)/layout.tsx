@@ -11,12 +11,12 @@ export default async function DashboardLayout({
 
   return (
     <AuthProvider>
-    <div className="min-h-screen bg-[#09090B]">
-      <DashboardNav user={user} />
-      <main className="container mx-auto px-4 py-8 max-w-6xl">
-        {children}
-      </main>
-    </div>
-  </AuthProvider>
+      <div className="min-h-screen bg-[#09090B]">
+        <DashboardNav user={user} />
+        <main className="container mx-auto max-w-6xl px-4 py-8">
+          {children}
+        </main>
+      </div>
+    </AuthProvider>
   )
 }

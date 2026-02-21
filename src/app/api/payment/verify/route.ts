@@ -25,8 +25,11 @@ export async function POST(request: Request) {
     }
 
     const body = await request.json()
-    const { razorpay_payment_id, razorpay_subscription_id, razorpay_signature } =
-      schema.parse(body)
+    const {
+      razorpay_payment_id,
+      razorpay_subscription_id,
+      razorpay_signature,
+    } = schema.parse(body)
 
     // Verify signature
     const generatedSignature = crypto

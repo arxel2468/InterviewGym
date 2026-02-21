@@ -38,7 +38,9 @@ export async function POST(request: Request) {
         const userId = sub.notes?.userId
 
         if (!userId) {
-          logger.error('Webhook: no userId in subscription notes', { subId: sub.id })
+          logger.error('Webhook: no userId in subscription notes', {
+            subId: sub.id,
+          })
           break
         }
 
@@ -159,7 +161,10 @@ export async function POST(request: Request) {
           })
         }
 
-        logger.info('Payment captured', { paymentId: payment.id, amount: payment.amount })
+        logger.info('Payment captured', {
+          paymentId: payment.id,
+          amount: payment.amount,
+        })
         break
       }
 

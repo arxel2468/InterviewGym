@@ -56,7 +56,10 @@ describe('generateInterviewerResponse', () => {
       interviewType: 'behavioral',
       targetRole: 'fullstack',
       conversationHistory: [
-        { role: 'interviewer', content: 'Tell me about a challenge you faced.' },
+        {
+          role: 'interviewer',
+          content: 'Tell me about a challenge you faced.',
+        },
         { role: 'candidate', content: 'I fixed a bug.' },
       ],
     })

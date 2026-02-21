@@ -14,12 +14,20 @@ export function generateMetadata(): Metadata {
       default: 'InterviewGym - Practice Interviews with AI',
       template: '%s | InterviewGym',
     },
-    description: 'Practice interviews with an AI that asks real questions, gives honest feedback, and helps you build confidence. Fail safely before you fail expensively.',
-    keywords: ['interview practice', 'mock interview', 'AI interview', 'behavioral interview', 'job interview prep'],
+    description:
+      'Practice interviews with an AI that asks real questions, gives honest feedback, and helps you build confidence. Fail safely before you fail expensively.',
+    keywords: [
+      'interview practice',
+      'mock interview',
+      'AI interview',
+      'behavioral interview',
+      'job interview prep',
+    ],
     authors: [{ name: 'InterviewGym' }],
     openGraph: {
       title: 'InterviewGym - Practice Interviews with AI',
-      description: 'Practice interviews with an AI that asks real questions and gives honest feedback.',
+      description:
+        'Practice interviews with an AI that asks real questions and gives honest feedback.',
       url: 'https://interviewgym.vercel.app',
       siteName: 'InterviewGym',
       type: 'website',
@@ -27,7 +35,8 @@ export function generateMetadata(): Metadata {
     twitter: {
       card: 'summary_large_image',
       title: 'InterviewGym - Practice Interviews with AI',
-      description: 'Practice interviews with an AI that asks real questions and gives honest feedback.',
+      description:
+        'Practice interviews with an AI that asks real questions and gives honest feedback.',
     },
     robots: {
       index: true,
@@ -47,13 +56,13 @@ export default function RootLayout({
   return (
     <html lang="en" className="dark">
       <body className={inter.className}>
-          {children}
-          <Toaster position="top-center" theme="dark" richColors />
-          <Analytics />
-          <Script
-           src="https://checkout.razorpay.com/v1/checkout.js"
-           strategy="lazyOnload"
-          />
+        {children}
+        <Toaster position="top-center" theme="dark" richColors />
+        <Analytics />
+        <Script
+          src="https://checkout.razorpay.com/v1/checkout.js"
+          strategy="lazyOnload"
+        />
       </body>
     </html>
   )

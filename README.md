@@ -1,4 +1,3 @@
-
 # InterviewGym
 
 [![CI](https://github.com/arxel2468/interviewgym/actions/workflows/ci.yml/badge.svg)](https://github.com/arxel2468/interviewgym/actions/workflows/ci.yml)
@@ -82,7 +81,7 @@
 
 ```
 User 1:N Session 1:N Message
- |            | 
+ |            |
  |            +-- 1:1 Feedback (optional)
  |            +-- 1:1 Metrics
  |
@@ -168,6 +167,7 @@ interviewgym/
 
 6. **Open your browser**
    Navigate to `http://localhost:3000`
+
 ### Local Development Notes
 
 - The app expects Supabase Auth enabled and a Postgres database configured.
@@ -197,15 +197,15 @@ NEXT_PUBLIC_APP_URL=http://localhost:3000
 
 ### Variable Reference
 
-| Variable | Required | Purpose |
-| --- | --- | --- |
-| `NEXT_PUBLIC_SUPABASE_URL` | Yes | Supabase project URL |
-| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Yes | Client-side auth key |
-| `SUPABASE_SERVICE_ROLE_KEY` | Yes | Server-side admin key |
-| `DATABASE_URL` | Yes | Prisma pooled connection |
-| `DIRECT_URL` | Yes | Prisma direct connection |
-| `GROQ_API_KEY` | Yes | Groq API access |
-| `NEXT_PUBLIC_APP_URL` | Yes | Base app URL for auth |
+| Variable                        | Required | Purpose                  |
+| ------------------------------- | -------- | ------------------------ |
+| `NEXT_PUBLIC_SUPABASE_URL`      | Yes      | Supabase project URL     |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Yes      | Client-side auth key     |
+| `SUPABASE_SERVICE_ROLE_KEY`     | Yes      | Server-side admin key    |
+| `DATABASE_URL`                  | Yes      | Prisma pooled connection |
+| `DIRECT_URL`                    | Yes      | Prisma direct connection |
+| `GROQ_API_KEY`                  | Yes      | Groq API access          |
+| `NEXT_PUBLIC_APP_URL`           | Yes      | Base app URL for auth    |
 
 ### Obtaining API Keys
 
@@ -286,13 +286,13 @@ InterviewGym supports multiple interview formats:
 
 ## Scripts
 
-| Script | Description |
-| --- | --- |
-| `npm run dev` | Start the development server |
-| `npm run build` | Create a production build |
-| `npm run start` | Run the production server |
-| `npm run lint` | Lint the codebase |
-| `npx prisma studio` | Explore the database |
+| Script              | Description                  |
+| ------------------- | ---------------------------- |
+| `npm run dev`       | Start the development server |
+| `npm run build`     | Create a production build    |
+| `npm run start`     | Run the production server    |
+| `npm run lint`      | Lint the codebase            |
+| `npx prisma studio` | Explore the database         |
 
 ## Contributing
 
@@ -317,5 +317,3 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 ---
 
 Built with Next.js, Supabase, and Groq
-
-

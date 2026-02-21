@@ -41,26 +41,26 @@ export default async function FeedbackPage({ params }: PageProps) {
   // Session completed but feedback failed to generate
   if (!session.feedback) {
     return (
-      <div className="max-w-xl mx-auto mt-20">
-        <Card className="bg-zinc-900/50 border-zinc-800">
-          <CardContent className="pt-8 pb-8 text-center">
-            <div className="w-16 h-16 rounded-full bg-amber-500/10 flex items-center justify-center mx-auto mb-6">
-              <AlertTriangle className="w-8 h-8 text-amber-500" />
+      <div className="mx-auto mt-20 max-w-xl">
+        <Card className="border-zinc-800 bg-zinc-900/50">
+          <CardContent className="pb-8 pt-8 text-center">
+            <div className="mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-full bg-amber-500/10">
+              <AlertTriangle className="h-8 w-8 text-amber-500" />
             </div>
 
-            <h2 className="text-xl font-semibold text-white mb-2">
+            <h2 className="mb-2 text-xl font-semibold text-white">
               Feedback Generation Failed
             </h2>
 
-            <p className="text-zinc-400 mb-6">
-              We completed your interview but couldn't generate feedback.
-              Your session has been saved.
+            <p className="mb-6 text-zinc-400">
+              We completed your interview but couldn't generate feedback. Your
+              session has been saved.
             </p>
 
             <div className="flex justify-center gap-3">
               <Link href="/dashboard">
                 <Button variant="outline" className="border-zinc-700">
-                  <Home className="w-4 h-4 mr-2" />
+                  <Home className="mr-2 h-4 w-4" />
                   Dashboard
                 </Button>
               </Link>
@@ -77,7 +77,7 @@ export default async function FeedbackPage({ params }: PageProps) {
   }
 
   return (
-    <FeedbackView 
+    <FeedbackView
       session={session}
       messages={session.messages}
       metrics={session.metrics}

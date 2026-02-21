@@ -5,36 +5,34 @@ import { FileQuestion, Home, Plus } from 'lucide-react'
 
 export default function SessionNotFound() {
   return (
-    <div className="max-w-xl mx-auto mt-20">
-      <Card className="bg-zinc-900/50 border-zinc-800">
-        <CardContent className="pt-8 pb-8">
+    <div className="mx-auto mt-20 max-w-xl">
+      <Card className="border-zinc-800 bg-zinc-900/50">
+        <CardContent className="pb-8 pt-8">
           <div className="text-center">
-            <div className="w-16 h-16 rounded-full bg-zinc-800 flex items-center justify-center mx-auto mb-6">
-              <FileQuestion className="w-8 h-8 text-zinc-500" />
+            <div className="mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-full bg-zinc-800">
+              <FileQuestion className="h-8 w-8 text-zinc-500" />
             </div>
-            
-            <h2 className="text-xl font-semibold text-white mb-2">
+
+            <h2 className="mb-2 text-xl font-semibold text-white">
               Session Not Found
             </h2>
-            
-            <p className="text-zinc-400 mb-8 max-w-sm mx-auto">
-              This interview session doesn't exist or you don't have access to it.
+
+            <p className="mx-auto mb-8 max-w-sm text-zinc-400">
+              This interview session doesn't exist or you don't have access to
+              it.
             </p>
-            
-            <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
+
+            <div className="flex flex-col items-center justify-center gap-3 sm:flex-row">
               <Link href="/dashboard/session/new" className="w-full sm:w-auto">
-                <Button className="bg-gradient-primary hover:opacity-90 w-full">
-                  <Plus className="w-4 h-4 mr-2" />
+                <Button className="bg-gradient-primary w-full hover:opacity-90">
+                  <Plus className="mr-2 h-4 w-4" />
                   Start New Session
                 </Button>
               </Link>
-              
+
               <Link href="/dashboard" className="w-full sm:w-auto">
-                <Button 
-                  variant="outline" 
-                  className="border-zinc-700 w-full"
-                >
-                  <Home className="w-4 h-4 mr-2" />
+                <Button variant="outline" className="w-full border-zinc-700">
+                  <Home className="mr-2 h-4 w-4" />
                   Back to Dashboard
                 </Button>
               </Link>

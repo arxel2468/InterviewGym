@@ -30,9 +30,16 @@ export async function POST(request: Request) {
       where: { userId: user.id },
     })
 
-    if (existing && existing.status === 'active' && new Date() < existing.currentPeriodEnd) {
+    if (
+      existing &&
+      existing.status === 'active' &&
+      new Date() < existing.currentPeriodEnd
+    ) {
       return NextResponse.json(
-        { error: 'You already have an active subscription', currentPlan: existing.plan },
+        {
+          error: 'You already have an active subscription',
+          currentPlan: existing.plan,
+        },
         { status: 409 }
       )
     }
@@ -80,9 +87,15 @@ export async function POST(request: Request) {
     logger.error('Create subscription error', { error: String(error) })
 
     if (error instanceof z.ZodError) {
-      return NextResponse.json({ error: 'Invalid plan selected' }, { status: 400 })
+      return NextResponse.json(
+        { error: 'Invalid plan selected' },
+        { status: 400 }
+      )
     }
 
-    return NextResponse.json({ error: 'Failed to create subscription' }, { status: 500 })
+    return NextResponse.json(
+      { error: 'Failed to create subscription' },
+      { status: 500 }
+    )
   }
 }

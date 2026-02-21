@@ -19,11 +19,11 @@ export function truncateToTokenLimit(
   suffix: string = '...[truncated]'
 ): string {
   const maxChars = maxTokens * 4
-  
+
   if (text.length <= maxChars) {
     return text
   }
-  
+
   return text.slice(0, maxChars - suffix.length) + suffix
 }
 
@@ -31,25 +31,24 @@ export function truncateToTokenLimit(
  * Compress conversation history to reduce token usage
  * Keeps first message (intro) and last N exchanges
  */
-export function compressConversationHistory<T extends { role: string; content: string }>(
-  messages: T[],
-  maxMessages: number = 10
-): T[] {
+export function compressConversationHistory<
+  T extends { role: string; content: string },
+>(messages: T[], maxMessages: number = 10): T[] {
   if (messages.length <= maxMessages) {
     return messages
   }
-  
+
   // Keep first message (interviewer intro)
   const first = messages[0]
-  
+
   // Keep last N-1 messages
   const recent = messages.slice(-(maxMessages - 1))
-  
+
   logger.debug('Compressed conversation history', {
     original: messages.length,
     compressed: maxMessages,
   })
-  
+
   return [first, ...recent]
 }
 
@@ -67,17 +66,17 @@ export function selectModelTier(context: {
   if (context.isFirstMessage) {
     return 'quality'
   }
-  
+
   // Closing messages can use faster model
   if (context.isClosingMessage) {
     return 'fast'
   }
-  
+
   // Long conversations - use balanced to save costs
   if (context.conversationLength > 8) {
     return 'balanced'
   }
-  
+
   return 'quality'
 }
 
@@ -85,19 +84,22 @@ export function selectModelTier(context: {
  * Response cache for common patterns
  * Reduces redundant AI calls
  */
-const responsePatterns = new Map<string, { response: string; timestamp: number }>()
+const responsePatterns = new Map<
+  string,
+  { response: string; timestamp: number }
+>()
 const PATTERN_CACHE_TTL = 30 * 60 * 1000 // 30 minutes
 
 export function getCachedPattern(key: string): string | null {
   const cached = responsePatterns.get(key)
-  
+
   if (!cached) return null
-  
+
   if (Date.now() - cached.timestamp > PATTERN_CACHE_TTL) {
     responsePatterns.delete(key)
     return null
   }
-  
+
   return cached.response
 }
 
@@ -107,7 +109,7 @@ export function setCachedPattern(key: string, response: string): void {
     const oldest = responsePatterns.keys().next().value
     if (oldest) responsePatterns.delete(oldest)
   }
-  
+
   responsePatterns.set(key, { response, timestamp: Date.now() })
 }
 
@@ -139,12 +141,12 @@ const MAX_USAGE_LOG = 1000
 
 export function trackAIUsage(record: UsageRecord): void {
   usageLog.push(record)
-  
+
   // Rotate log
   if (usageLog.length > MAX_USAGE_LOG) {
     usageLog.shift()
   }
-  
+
   logger.info('AI usage', {
     model: record.model,
     tokens: record.inputTokens + record.outputTokens,
@@ -161,17 +163,18 @@ export function getUsageStats(): {
   const byModel: Record<string, number> = {}
   let totalTokens = 0
   let totalLatency = 0
-  
+
   for (const record of usageLog) {
     totalTokens += record.inputTokens + record.outputTokens
     totalLatency += record.latencyMs
     byModel[record.model] = (byModel[record.model] || 0) + 1
   }
-  
+
   return {
     totalRequests: usageLog.length,
     totalTokens,
-    avgLatencyMs: usageLog.length > 0 ? Math.round(totalLatency / usageLog.length) : 0,
+    avgLatencyMs:
+      usageLog.length > 0 ? Math.round(totalLatency / usageLog.length) : 0,
     byModel,
   }
 }

@@ -22,7 +22,9 @@ const requestSchema = z.object({
 export async function POST(request: Request) {
   try {
     const supabase = await createClient()
-    const { data: { user } } = await supabase.auth.getUser()
+    const {
+      data: { user },
+    } = await supabase.auth.getUser()
 
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
@@ -33,20 +35,26 @@ export async function POST(request: Request) {
     try {
       const text = await request.text()
       if (!text) {
-        return NextResponse.json({
-          success: false,
-          error: 'Empty request body',
-          friendlyMessage: 'Something went wrong. Please try again.'
-        }, { status: 400 })
+        return NextResponse.json(
+          {
+            success: false,
+            error: 'Empty request body',
+            friendlyMessage: 'Something went wrong. Please try again.',
+          },
+          { status: 400 }
+        )
       }
       body = JSON.parse(text)
     } catch (parseError) {
-      logger.error('JSON parse error:',  { error: String(parseError) })
-      return NextResponse.json({
-        success: false,
-        error: 'Invalid JSON',
-        friendlyMessage: 'Something went wrong. Please try again.'
-      }, { status: 400 })
+      logger.error('JSON parse error:', { error: String(parseError) })
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'Invalid JSON',
+          friendlyMessage: 'Something went wrong. Please try again.',
+        },
+        { status: 400 }
+      )
     }
 
     const context = requestSchema.parse(body)
@@ -59,18 +67,25 @@ export async function POST(request: Request) {
         where: { id: context.sessionId, userId: user.id },
       })
 
-      logger.info('Session usedResume:',  { usedResume: session?.usedResume })
+      logger.info('Session usedResume:', { usedResume: session?.usedResume })
 
       if (session?.usedResume) {
         const resume = await prisma.resume.findUnique({
           where: { userId: user.id },
         })
 
-        logger.info('Resume found:', { hasResume: !!resume, hasParsedData: !!resume?.parsedData })
+        logger.info('Resume found:', {
+          hasResume: !!resume,
+          hasParsedData: !!resume?.parsedData,
+        })
 
         if (resume?.parsedData) {
-          resumeContext = formatResumeForContext(resume.parsedData as ParsedResume)
-          logger.info('Resume context generated:', { preview: resumeContext?.substring(0, 200) })
+          resumeContext = formatResumeForContext(
+            resume.parsedData as ParsedResume
+          )
+          logger.info('Resume context generated:', {
+            preview: resumeContext?.substring(0, 200),
+          })
         }
       }
     }
@@ -92,18 +107,21 @@ export async function POST(request: Request) {
     logger.error('Interview response error:', error)
 
     if (error instanceof z.ZodError) {
-      return NextResponse.json({
-        success: false,
-        error: 'Invalid request format',
-        friendlyMessage: 'Something went wrong. Please try again.'
-      }, { status: 400 })
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'Invalid request format',
+          friendlyMessage: 'Something went wrong. Please try again.',
+        },
+        { status: 400 }
+      )
     }
 
     return NextResponse.json(
       {
         success: false,
         error: error.message || 'Failed to generate response',
-        friendlyMessage: "The interviewer is having trouble. Please try again."
+        friendlyMessage: 'The interviewer is having trouble. Please try again.',
       },
       { status: 500 }
     )

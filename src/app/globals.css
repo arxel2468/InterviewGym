@@ -31,10 +31,12 @@
   * {
     @apply border-border;
   }
-  
+
   body {
     @apply bg-background text-foreground;
-    font-feature-settings: "rlig" 1, "calt" 1;
+    font-feature-settings:
+      'rlig' 1,
+      'calt' 1;
   }
 }
 
@@ -42,11 +44,11 @@
   .text-gradient {
     @apply bg-gradient-to-r from-violet-500 to-blue-500 bg-clip-text text-transparent;
   }
-  
+
   .bg-gradient-primary {
     @apply bg-gradient-to-r from-violet-600 to-blue-600;
   }
-  
+
   .bg-gradient-subtle {
     @apply bg-gradient-to-b from-zinc-900 to-zinc-950;
   }
@@ -54,7 +56,7 @@
 
 /* Subtle grid background */
 .bg-grid {
-  background-image: 
+  background-image:
     linear-gradient(rgba(255, 255, 255, 0.02) 1px, transparent 1px),
     linear-gradient(90deg, rgba(255, 255, 255, 0.02) 1px, transparent 1px);
   background-size: 64px 64px;

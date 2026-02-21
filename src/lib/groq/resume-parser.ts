@@ -106,7 +106,8 @@ IMPORTANT:
         messages: [
           {
             role: 'system',
-            content: 'You are a resume parser. Extract all information and return valid JSON only. No markdown, no explanation.',
+            content:
+              'You are a resume parser. Extract all information and return valid JSON only. No markdown, no explanation.',
           },
           { role: 'user', content: prompt },
         ],
@@ -175,33 +176,37 @@ export function formatResumeForContext(parsed: ParsedResume): string {
   }
 
   if (parsed.experience.length > 0) {
-    const exp = parsed.experience.map(e => {
-      let text = `- ${e.title} at ${e.company}`
-      if (e.duration) text += ` (${e.duration})`
-      if (e.highlights && e.highlights.length > 0) {
-        text += `: ${e.highlights.slice(0, 2).join('; ')}`
-      }
-      return text
-    }).join('\n')
+    const exp = parsed.experience
+      .map((e) => {
+        let text = `- ${e.title} at ${e.company}`
+        if (e.duration) text += ` (${e.duration})`
+        if (e.highlights && e.highlights.length > 0) {
+          text += `: ${e.highlights.slice(0, 2).join('; ')}`
+        }
+        return text
+      })
+      .join('\n')
     sections.push(`WORK EXPERIENCE:\n${exp}`)
   }
 
   if (parsed.projects.length > 0) {
-    const proj = parsed.projects.map((p, i) => {
-      let text = `${i + 1}. ${p.name}`
-      if (p.description) text += ` - ${p.description}`
-      if (p.technologies && p.technologies.length > 0) {
-        text += ` [${p.technologies.join(', ')}]`
-      }
-      return text
-    }).join('\n')
+    const proj = parsed.projects
+      .map((p, i) => {
+        let text = `${i + 1}. ${p.name}`
+        if (p.description) text += ` - ${p.description}`
+        if (p.technologies && p.technologies.length > 0) {
+          text += ` [${p.technologies.join(', ')}]`
+        }
+        return text
+      })
+      .join('\n')
     sections.push(`PROJECTS (${parsed.projects.length} total):\n${proj}`)
   }
 
   if (parsed.education.length > 0) {
-    const edu = parsed.education.map(e =>
-      `- ${e.degree} from ${e.institution} (${e.year})`
-    ).join('\n')
+    const edu = parsed.education
+      .map((e) => `- ${e.degree} from ${e.institution} (${e.year})`)
+      .join('\n')
     sections.push(`EDUCATION:\n${edu}`)
   }
 
@@ -212,7 +217,9 @@ export function formatResumeForContext(parsed: ParsedResume): string {
   // Add instruction at the end
   const projectCount = parsed.projects.length
   if (projectCount > 0) {
-    sections.push(`\nYou may ask about any of the ${projectCount} projects listed above. Reference them by name.`)
+    sections.push(
+      `\nYou may ask about any of the ${projectCount} projects listed above. Reference them by name.`
+    )
   }
 
   return sections.join('\n\n')

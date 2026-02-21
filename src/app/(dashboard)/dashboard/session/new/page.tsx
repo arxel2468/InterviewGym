@@ -15,10 +15,12 @@ export default async function NewSessionPage() {
   })
 
   return (
-    <div className="max-w-2xl mx-auto space-y-6">
+    <div className="mx-auto max-w-2xl space-y-6">
       <div>
-        <h1 className="text-2xl font-semibold text-white">Start a Practice Session</h1>
-        <p className="text-zinc-400 mt-1">
+        <h1 className="text-2xl font-semibold text-white">
+          Start a Practice Session
+        </h1>
+        <p className="mt-1 text-zinc-400">
           Configure your interview and begin when ready
         </p>
       </div>
@@ -29,10 +31,14 @@ export default async function NewSessionPage() {
       />
 
       <ResumeUpload
-        currentResume={resume ? {
-          fileName: resume.fileName,
-          parsedData: resume.parsedData as any,
-        } : null}
+        currentResume={
+          resume
+            ? {
+                fileName: resume.fileName,
+                parsedData: resume.parsedData as any,
+              }
+            : null
+        }
       />
     </div>
   )

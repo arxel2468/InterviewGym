@@ -19,21 +19,22 @@ export async function extractTextFromFile(file: File): Promise<string> {
   }
 
   if (
-    file.type === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' ||
+    file.type ===
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document' ||
     file.type === 'application/msword'
   ) {
     return extractFromDOCX(buffer)
   }
 
-  throw new Error('Unsupported file type. Please use DOCX, TXT, or paste your resume text.')
+  throw new Error(
+    'Unsupported file type. Please use DOCX, TXT, or paste your resume text.'
+  )
 }
 
 async function extractFromDOCX(buffer: Buffer): Promise<string> {
   try {
     const result = await mammoth.extractRawText({ buffer })
-    const text = result.value
-      .replace(/\s+/g, ' ')
-      .trim()
+    const text = result.value.replace(/\s+/g, ' ').trim()
 
     console.log('DOCX extracted, chars:', text.length)
 

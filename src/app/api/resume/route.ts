@@ -8,7 +8,9 @@ import { logger } from '@/lib/logger'
 export async function GET() {
   try {
     const supabase = await createClient()
-    const { data: { user } } = await supabase.auth.getUser()
+    const {
+      data: { user },
+    } = await supabase.auth.getUser()
 
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
@@ -28,7 +30,9 @@ export async function GET() {
 export async function POST(request: Request) {
   try {
     const supabase = await createClient()
-    const { data: { user } } = await supabase.auth.getUser()
+    const {
+      data: { user },
+    } = await supabase.auth.getUser()
 
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
@@ -45,19 +49,25 @@ export async function POST(request: Request) {
       'application/pdf',
       'text/plain',
       'application/msword',
-      'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
     ]
 
     if (!allowedTypes.includes(file.type)) {
-      return NextResponse.json({
-        error: 'Invalid file type. Please upload PDF, DOC, DOCX, or TXT.'
-      }, { status: 400 })
+      return NextResponse.json(
+        {
+          error: 'Invalid file type. Please upload PDF, DOC, DOCX, or TXT.',
+        },
+        { status: 400 }
+      )
     }
 
     if (file.size > 5 * 1024 * 1024) {
-      return NextResponse.json({
-        error: 'File too large. Maximum size is 5MB.'
-      }, { status: 400 })
+      return NextResponse.json(
+        {
+          error: 'File too large. Maximum size is 5MB.',
+        },
+        { status: 400 }
+      )
     }
 
     // Extract text using proper parsers
@@ -65,17 +75,23 @@ export async function POST(request: Request) {
     try {
       rawText = await extractTextFromFile(file)
     } catch (parseError: any) {
-      return NextResponse.json({
-        error: parseError.message || 'Failed to parse file'
-      }, { status: 400 })
+      return NextResponse.json(
+        {
+          error: parseError.message || 'Failed to parse file',
+        },
+        { status: 400 }
+      )
     }
 
     logger.info('Extracted text', { length: rawText.length })
 
     if (rawText.length < 100) {
-      return NextResponse.json({
-        error: 'Could not extract enough text from file.'
-      }, { status: 400 })
+      return NextResponse.json(
+        {
+          error: 'Could not extract enough text from file.',
+        },
+        { status: 400 }
+      )
     }
 
     // Parse with AI
@@ -107,16 +123,21 @@ export async function POST(request: Request) {
     return NextResponse.json({ resume, parsed: parsedData })
   } catch (error: any) {
     logger.error('Upload resume error', { error: String(error) })
-      return NextResponse.json({
-      error: error.message || 'Failed to process resume'
-    }, { status: 500 })
+    return NextResponse.json(
+      {
+        error: error.message || 'Failed to process resume',
+      },
+      { status: 500 }
+    )
   }
 }
 
 export async function DELETE() {
   try {
     const supabase = await createClient()
-    const { data: { user } } = await supabase.auth.getUser()
+    const {
+      data: { user },
+    } = await supabase.auth.getUser()
 
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
@@ -129,6 +150,9 @@ export async function DELETE() {
     return NextResponse.json({ success: true })
   } catch (error) {
     logger.error('Delete resume error', { error: String(error) })
-    return NextResponse.json({ error: 'Failed to delete resume' }, { status: 500 })
+    return NextResponse.json(
+      { error: 'Failed to delete resume' },
+      { status: 500 }
+    )
   }
 }

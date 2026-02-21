@@ -47,7 +47,14 @@ export function useSessionStorage(sessionId: string) {
   }, [sessionId])
 
   const saveState = useCallback(
-    (messages: { role: string; content: string; timestamp: Date; durationMs?: number }[]) => {
+    (
+      messages: {
+        role: string
+        content: string
+        timestamp: Date
+        durationMs?: number
+      }[]
+    ) => {
       if (typeof window === 'undefined') return
 
       const state: SessionState = {
@@ -75,12 +82,14 @@ export function useSessionStorage(sessionId: string) {
     localStorage.removeItem(STORAGE_KEY)
   }, [])
 
-  const restoreMessages = useCallback((): {
-    role: 'interviewer' | 'candidate'
-    content: string
-    timestamp: Date
-    durationMs?: number
-  }[] | null => {
+  const restoreMessages = useCallback(():
+    | {
+        role: 'interviewer' | 'candidate'
+        content: string
+        timestamp: Date
+        durationMs?: number
+      }[]
+    | null => {
     const saved = getSavedState()
     if (!saved) return null
 

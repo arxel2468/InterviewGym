@@ -8,7 +8,7 @@ export function useAudioRecorder() {
   const [state, setState] = useState<RecordingState>('idle')
   const [error, setError] = useState<string | null>(null)
   const [duration, setDuration] = useState(0)
-  
+
   const mediaRecorderRef = useRef<MediaRecorder | null>(null)
   const chunksRef = useRef<Blob[]>([])
   const streamRef = useRef<MediaStream | null>(null)
@@ -41,7 +41,9 @@ export function useAudioRecorder() {
 
       // Check if mediaDevices is available
       if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-        throw new Error('Your browser does not support audio recording. Please use Chrome, Firefox, or Safari.')
+        throw new Error(
+          'Your browser does not support audio recording. Please use Chrome, Firefox, or Safari.'
+        )
       }
 
       let stream: MediaStream
@@ -54,12 +56,24 @@ export function useAudioRecorder() {
           },
         })
       } catch (mediaError: any) {
-        if (mediaError.name === 'NotAllowedError' || mediaError.name === 'PermissionDeniedError') {
-          throw new Error('Microphone access denied. Please allow microphone access in your browser settings and reload the page.')
-        } else if (mediaError.name === 'NotFoundError' || mediaError.name === 'DevicesNotFoundError') {
-          throw new Error('No microphone found. Please connect a microphone and try again.')
+        if (
+          mediaError.name === 'NotAllowedError' ||
+          mediaError.name === 'PermissionDeniedError'
+        ) {
+          throw new Error(
+            'Microphone access denied. Please allow microphone access in your browser settings and reload the page.'
+          )
+        } else if (
+          mediaError.name === 'NotFoundError' ||
+          mediaError.name === 'DevicesNotFoundError'
+        ) {
+          throw new Error(
+            'No microphone found. Please connect a microphone and try again.'
+          )
         } else {
-          throw new Error('Could not access microphone. Please check your audio settings.')
+          throw new Error(
+            'Could not access microphone. Please check your audio settings.'
+          )
         }
       }
 

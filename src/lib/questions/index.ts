@@ -1,4 +1,4 @@
-export type InterviewType = 
+export type InterviewType =
   | 'behavioral'
   | 'technical'
   | 'hr_screen'
@@ -34,7 +34,10 @@ export type InterviewConfig = {
   description: string
 }
 
-export const INTERVIEW_CONFIGS: Record<InterviewType, Omit<InterviewConfig, 'role'>> = {
+export const INTERVIEW_CONFIGS: Record<
+  InterviewType,
+  Omit<InterviewConfig, 'role'>
+> = {
   behavioral: {
     type: 'behavioral',
     questionCount: 5,

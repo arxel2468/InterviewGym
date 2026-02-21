@@ -5,9 +5,9 @@
 export function TypingIndicator() {
   return (
     <div className="flex items-center gap-1 px-2 py-1">
-      <div className="w-1.5 h-1.5 rounded-full bg-zinc-500 animate-bounce [animation-delay:-0.3s]" />
-      <div className="w-1.5 h-1.5 rounded-full bg-zinc-500 animate-bounce [animation-delay:-0.15s]" />
-      <div className="w-1.5 h-1.5 rounded-full bg-zinc-500 animate-bounce" />
+      <div className="h-1.5 w-1.5 animate-bounce rounded-full bg-zinc-500 [animation-delay:-0.3s]" />
+      <div className="h-1.5 w-1.5 animate-bounce rounded-full bg-zinc-500 [animation-delay:-0.15s]" />
+      <div className="h-1.5 w-1.5 animate-bounce rounded-full bg-zinc-500" />
     </div>
   )
 }

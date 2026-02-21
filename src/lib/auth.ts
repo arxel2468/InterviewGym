@@ -4,13 +4,15 @@ import { prisma } from '@/lib/prisma'
 
 export async function getUser() {
   const supabase = await createClient() // ADD await
-  const { data: { user } } = await supabase.auth.getUser()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
   return user
 }
 
 export async function requireAuth() {
   const user = await getUser()
-  
+
   if (!user) {
     redirect('/login')
   }
@@ -29,7 +31,7 @@ export async function requireAuth() {
 
 export async function requireOnboarding() {
   const user = await requireAuth()
-  
+
   if (!user.onboardingComplete) {
     redirect('/onboarding')
   }

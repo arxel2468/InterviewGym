@@ -47,7 +47,9 @@ describe('sanitizeForTTS', () => {
   })
 
   it('removes URLs', () => {
-    expect(sanitizeForTTS('Visit https://example.com please')).toBe('Visit  please')
+    expect(sanitizeForTTS('Visit https://example.com please')).toBe(
+      'Visit  please'
+    )
   })
 })
 

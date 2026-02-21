@@ -1,5 +1,3 @@
-
-
 import { getBestModel } from './models'
 import { sanitizeForTTS } from '@/lib/utils/sanitize'
 import { logger } from '@/lib/logger'
@@ -21,14 +19,24 @@ export type SynthesisError = {
 
 export type TTSFallbackLevel = 'primary' | 'secondary' | 'browser' | 'failed'
 
-const VOICES = ['autumn', 'diana', 'hannah', 'austin', 'daniel', 'troy'] as const
+const VOICES = [
+  'autumn',
+  'diana',
+  'hannah',
+  'austin',
+  'daniel',
+  'troy',
+] as const
 type Voice = (typeof VOICES)[number]
 
 /**
  * Split text into sentences for chunked TTS
  * First chunk is spoken immediately, rest synthesized in parallel
  */
-export function splitForStreaming(text: string): { first: string; rest: string | null } {
+export function splitForStreaming(text: string): {
+  first: string
+  rest: string | null
+} {
   const cleaned = sanitizeForTTS(text)
 
   // Find first sentence boundary
@@ -63,30 +71,40 @@ export async function synthesizeChunk(
   try {
     const startTime = Date.now()
 
-    const response = await fetch('https://api.groq.com/openai/v1/audio/speech', {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${process.env.GROQ_API_KEY}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model,
-        voice,
-        response_format: 'wav',
-        input: text,
-      }),
-    })
+    const response = await fetch(
+      'https://api.groq.com/openai/v1/audio/speech',
+      {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${process.env.GROQ_API_KEY}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          model,
+          voice,
+          response_format: 'wav',
+          input: text,
+        }),
+      }
+    )
 
     if (!response.ok) {
       const errorText = await response.text()
-      logger.error('TTS API error', { status: response.status, error: errorText })
+      logger.error('TTS API error', {
+        status: response.status,
+        error: errorText,
+      })
       throw new Error(`TTS API error: ${response.status}`)
     }
 
     const arrayBuffer = await response.arrayBuffer()
     const latency = Date.now() - startTime
 
-    logger.info('TTS synthesis complete', { model, latencyMs: latency, textLength: text.length })
+    logger.info('TTS synthesis complete', {
+      model,
+      latencyMs: latency,
+      textLength: text.length,
+    })
 
     return {
       audio: arrayBuffer,

@@ -5,7 +5,7 @@ import {
   analyzeText,
   getFillerAssessment,
   getLengthAssessment,
-  getTimeAssessment
+  getTimeAssessment,
 } from './metrics'
 
 describe('analyzeText', () => {

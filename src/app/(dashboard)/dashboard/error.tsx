@@ -17,29 +17,26 @@ export default function DashboardError({
   }, [error])
 
   return (
-    <div className="flex items-center justify-center min-h-[50vh]">
-      <div className="text-center max-w-md">
-        <div className="w-16 h-16 rounded-full bg-red-500/10 flex items-center justify-center mx-auto mb-6">
-          <AlertTriangle className="w-8 h-8 text-red-500" />
+    <div className="flex min-h-[50vh] items-center justify-center">
+      <div className="max-w-md text-center">
+        <div className="mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-full bg-red-500/10">
+          <AlertTriangle className="h-8 w-8 text-red-500" />
         </div>
-        <h2 className="text-xl font-semibold text-white mb-2">
+        <h2 className="mb-2 text-xl font-semibold text-white">
           Something went wrong
         </h2>
-        <p className="text-zinc-400 mb-6">
-          The interviewer encountered an unexpected issue. This has been logged and we'll look into it.
+        <p className="mb-6 text-zinc-400">
+          The interviewer encountered an unexpected issue. This has been logged
+          and we'll look into it.
         </p>
         <div className="flex items-center justify-center gap-4">
-          <Button 
-            onClick={reset}
-            variant="outline" 
-            className="border-zinc-700"
-          >
-            <RefreshCw className="w-4 h-4 mr-2" />
+          <Button onClick={reset} variant="outline" className="border-zinc-700">
+            <RefreshCw className="mr-2 h-4 w-4" />
             Try Again
           </Button>
           <Link href="/dashboard">
             <Button className="bg-gradient-primary hover:opacity-90">
-              <Home className="w-4 h-4 mr-2" />
+              <Home className="mr-2 h-4 w-4" />
               Go Home
             </Button>
           </Link>

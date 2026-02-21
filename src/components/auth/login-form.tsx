@@ -5,7 +5,13 @@ import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card'
 import { toast } from 'sonner'
 import { Github, Mail, Loader2 } from 'lucide-react'
 
@@ -54,8 +60,8 @@ export function LoginForm() {
   }
 
   return (
-    <Card className="bg-zinc-900/50 border-zinc-800 backdrop-blur-sm">
-      <CardHeader className="text-center pb-4">
+    <Card className="border-zinc-800 bg-zinc-900/50 backdrop-blur-sm">
+      <CardHeader className="pb-4 text-center">
         <CardTitle className="text-xl text-white">Get started</CardTitle>
         <CardDescription className="text-zinc-400">
           Sign in to track your progress
@@ -97,14 +103,14 @@ export function LoginForm() {
 
           <Button
             variant="outline"
-            className="w-full bg-zinc-800 hover:bg-zinc-700 text-white border-zinc-700"
+            className="w-full border-zinc-700 bg-zinc-800 text-white hover:bg-zinc-700"
             onClick={handleGitHubLogin}
             disabled={loading}
           >
             {loading ? (
-              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
             ) : (
-              <Github className="w-4 h-4 mr-2" />
+              <Github className="mr-2 h-4 w-4" />
             )}
             Continue with GitHub
           </Button>
@@ -122,32 +128,34 @@ export function LoginForm() {
         {/* Magic Link */}
         <form onSubmit={handleMagicLink} className="space-y-3">
           <div className="space-y-2">
-            <Label htmlFor="email" className="text-zinc-300 text-sm">Email</Label>
+            <Label htmlFor="email" className="text-sm text-zinc-300">
+              Email
+            </Label>
             <Input
               id="email"
               type="email"
               placeholder="you@example.com"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className="bg-zinc-800/50 border-zinc-700 text-white placeholder:text-zinc-500 focus:border-violet-500 focus:ring-violet-500/20"
+              className="border-zinc-700 bg-zinc-800/50 text-white placeholder:text-zinc-500 focus:border-violet-500 focus:ring-violet-500/20"
               disabled={loading}
             />
           </div>
           <Button
             type="submit"
-            className="w-full bg-gradient-primary hover:opacity-90 transition-opacity"
+            className="bg-gradient-primary w-full transition-opacity hover:opacity-90"
             disabled={loading || !email}
           >
             {loading ? (
-              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
             ) : (
-              <Mail className="w-4 h-4 mr-2" />
+              <Mail className="mr-2 h-4 w-4" />
             )}
             Send login link
           </Button>
         </form>
 
-        <p className="text-xs text-center text-zinc-500 pt-2">
+        <p className="pt-2 text-center text-xs text-zinc-500">
           By continuing, you agree to our Terms of Service
         </p>
       </CardContent>

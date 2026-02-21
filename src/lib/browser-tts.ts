@@ -29,12 +29,17 @@ export function getBrowserVoices(): SpeechSynthesisVoice[] {
 /**
  * Find the best English voice available
  */
-function findBestVoice(voices: SpeechSynthesisVoice[]): SpeechSynthesisVoice | null {
+function findBestVoice(
+  voices: SpeechSynthesisVoice[]
+): SpeechSynthesisVoice | null {
   // Priority: Google > Microsoft > Others, and prefer en-US or en-GB
   const priorities = [
-    (v: SpeechSynthesisVoice) => v.lang.startsWith('en') && v.name.includes('Google'),
-    (v: SpeechSynthesisVoice) => v.lang.startsWith('en-GB') && v.name.includes('Google'),
-    (v: SpeechSynthesisVoice) => v.lang.startsWith('en') && v.name.includes('Microsoft'),
+    (v: SpeechSynthesisVoice) =>
+      v.lang.startsWith('en') && v.name.includes('Google'),
+    (v: SpeechSynthesisVoice) =>
+      v.lang.startsWith('en-GB') && v.name.includes('Google'),
+    (v: SpeechSynthesisVoice) =>
+      v.lang.startsWith('en') && v.name.includes('Microsoft'),
     (v: SpeechSynthesisVoice) => v.lang === 'en-GB',
     (v: SpeechSynthesisVoice) => v.lang === 'en-US',
     (v: SpeechSynthesisVoice) => v.lang.startsWith('en'),
@@ -51,7 +56,10 @@ function findBestVoice(voices: SpeechSynthesisVoice[]): SpeechSynthesisVoice | n
 /**
  * Speak text using browser's speech synthesis
  */
-export function speakText(text: string, options: SpeakOptions = {}): SpeakHandle {
+export function speakText(
+  text: string,
+  options: SpeakOptions = {}
+): SpeakHandle {
   const {
     rate = 0.95,
     pitch = 1,
@@ -84,7 +92,8 @@ export function speakText(text: string, options: SpeakOptions = {}): SpeakHandle
 
   utterance.onstart = () => onStart?.()
   utterance.onend = () => onEnd?.()
-  utterance.onerror = (event) => onError?.(event.error || 'Speech synthesis error')
+  utterance.onerror = (event) =>
+    onError?.(event.error || 'Speech synthesis error')
 
   // Handle Chrome's bug with long text (gets cut off)
   if (text.length > 200) {

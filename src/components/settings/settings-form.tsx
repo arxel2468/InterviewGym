@@ -6,7 +6,13 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { User } from '@prisma/client'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+} from '@/components/ui/card'
 import { toast } from 'sonner'
 import {
   Loader2,
@@ -47,7 +53,9 @@ const TIMELINES = [
 export function SettingsForm({ user, subscription }: SettingsFormProps) {
   const router = useRouter()
   const [targetRole, setTargetRole] = useState(user.targetRole || 'fullstack')
-  const [timeline, setTimeline] = useState(user.interviewTimeline || 'exploring')
+  const [timeline, setTimeline] = useState(
+    user.interviewTimeline || 'exploring'
+  )
   const [isSaving, setIsSaving] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
   const [isCancelling, setIsCancelling] = useState(false)
@@ -90,7 +98,9 @@ export function SettingsForm({ user, subscription }: SettingsFormProps) {
 
       if (!response.ok) throw new Error('Failed to cancel')
 
-      toast.success('Subscription cancelled. Access continues until end of billing period.')
+      toast.success(
+        'Subscription cancelled. Access continues until end of billing period.'
+      )
       router.refresh()
     } catch {
       toast.error('Failed to cancel subscription')
@@ -119,10 +129,10 @@ export function SettingsForm({ user, subscription }: SettingsFormProps) {
   return (
     <div className="space-y-6">
       {/* Profile Info */}
-      <Card className="bg-zinc-900/50 border-zinc-800">
+      <Card className="border-zinc-800 bg-zinc-900/50">
         <CardHeader>
-          <CardTitle className="text-lg text-white flex items-center gap-2">
-            <UserIcon className="w-5 h-5" />
+          <CardTitle className="flex items-center gap-2 text-lg text-white">
+            <UserIcon className="h-5 w-5" />
             Profile
           </CardTitle>
         </CardHeader>
@@ -149,26 +159,30 @@ export function SettingsForm({ user, subscription }: SettingsFormProps) {
       </Card>
 
       {/* Interview Preferences */}
-      <Card className="bg-zinc-900/50 border-zinc-800">
+      <Card className="border-zinc-800 bg-zinc-900/50">
         <CardHeader>
-          <CardTitle className="text-lg text-white flex items-center gap-2">
-            <Briefcase className="w-5 h-5" />
+          <CardTitle className="flex items-center gap-2 text-lg text-white">
+            <Briefcase className="h-5 w-5" />
             Interview Preferences
           </CardTitle>
-          <CardDescription>These settings affect your interview questions</CardDescription>
+          <CardDescription>
+            These settings affect your interview questions
+          </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
           <div className="space-y-3">
-            <label className="text-sm font-medium text-zinc-300">Target Role</label>
+            <label className="text-sm font-medium text-zinc-300">
+              Target Role
+            </label>
             <div className="grid grid-cols-2 gap-2">
               {ROLES.map((role) => (
                 <button
                   key={role.value}
                   onClick={() => setTargetRole(role.value)}
-                  className={`p-3 rounded-lg border text-left text-sm transition-all ${
+                  className={`rounded-lg border p-3 text-left text-sm transition-all ${
                     targetRole === role.value
                       ? 'border-violet-500 bg-violet-500/10 text-white'
-                      : 'border-zinc-800 hover:border-zinc-700 text-zinc-400'
+                      : 'border-zinc-800 text-zinc-400 hover:border-zinc-700'
                   }`}
                 >
                   {role.label}
@@ -178,16 +192,18 @@ export function SettingsForm({ user, subscription }: SettingsFormProps) {
           </div>
 
           <div className="space-y-3">
-            <label className="text-sm font-medium text-zinc-300">Interview Timeline</label>
+            <label className="text-sm font-medium text-zinc-300">
+              Interview Timeline
+            </label>
             <div className="grid grid-cols-3 gap-2">
               {TIMELINES.map((t) => (
                 <button
                   key={t.value}
                   onClick={() => setTimeline(t.value)}
-                  className={`p-3 rounded-lg border text-center text-sm transition-all ${
+                  className={`rounded-lg border p-3 text-center text-sm transition-all ${
                     timeline === t.value
                       ? 'border-violet-500 bg-violet-500/10 text-white'
-                      : 'border-zinc-800 hover:border-zinc-700 text-zinc-400'
+                      : 'border-zinc-800 text-zinc-400 hover:border-zinc-700'
                   }`}
                 >
                   {t.label}
@@ -196,8 +212,16 @@ export function SettingsForm({ user, subscription }: SettingsFormProps) {
             </div>
           </div>
 
-          <Button onClick={handleSave} disabled={isSaving} className="bg-gradient-primary hover:opacity-90">
-            {isSaving ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Save className="w-4 h-4 mr-2" />}
+          <Button
+            onClick={handleSave}
+            disabled={isSaving}
+            className="bg-gradient-primary hover:opacity-90"
+          >
+            {isSaving ? (
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            ) : (
+              <Save className="mr-2 h-4 w-4" />
+            )}
             Save Changes
           </Button>
         </CardContent>
@@ -205,27 +229,32 @@ export function SettingsForm({ user, subscription }: SettingsFormProps) {
 
       {/* Subscription Management */}
       {subscription && subscription.status === 'active' && (
-        <Card className="bg-zinc-900/50 border-zinc-800">
+        <Card className="border-zinc-800 bg-zinc-900/50">
           <CardHeader>
-            <CardTitle className="text-lg text-white flex items-center gap-2">
-              <CreditCard className="w-5 h-5" />
+            <CardTitle className="flex items-center gap-2 text-lg text-white">
+              <CreditCard className="h-5 w-5" />
               Subscription
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-white font-medium capitalize">{subscription.plan} Plan</p>
+                <p className="font-medium capitalize text-white">
+                  {subscription.plan} Plan
+                </p>
                 <p className="text-sm text-zinc-400">
                   Renews on{' '}
-                  {new Date(subscription.currentPeriodEnd).toLocaleDateString('en-IN', {
-                    day: 'numeric',
-                    month: 'long',
-                    year: 'numeric',
-                  })}
+                  {new Date(subscription.currentPeriodEnd).toLocaleDateString(
+                    'en-IN',
+                    {
+                      day: 'numeric',
+                      month: 'long',
+                      year: 'numeric',
+                    }
+                  )}
                 </p>
               </div>
-              <span className="px-2 py-1 rounded-full bg-green-500/10 text-green-400 text-xs">
+              <span className="rounded-full bg-green-500/10 px-2 py-1 text-xs text-green-400">
                 Active
               </span>
             </div>
@@ -235,7 +264,9 @@ export function SettingsForm({ user, subscription }: SettingsFormProps) {
               disabled={isCancelling}
               className="border-zinc-700 text-zinc-400 hover:text-red-400"
             >
-              {isCancelling && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+              {isCancelling && (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              )}
               Cancel Subscription
             </Button>
           </CardContent>
@@ -243,22 +274,28 @@ export function SettingsForm({ user, subscription }: SettingsFormProps) {
       )}
 
       {/* Stats */}
-      <Card className="bg-zinc-900/50 border-zinc-800">
+      <Card className="border-zinc-800 bg-zinc-900/50">
         <CardHeader>
           <CardTitle className="text-lg text-white">Your Stats</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-3 gap-4 text-center">
             <div>
-              <p className="text-2xl font-bold text-white">{user.totalSessions}</p>
+              <p className="text-2xl font-bold text-white">
+                {user.totalSessions}
+              </p>
               <p className="text-xs text-zinc-500">Total Sessions</p>
             </div>
             <div>
-              <p className="text-2xl font-bold text-white">{user.currentStreak}</p>
+              <p className="text-2xl font-bold text-white">
+                {user.currentStreak}
+              </p>
               <p className="text-xs text-zinc-500">Current Streak</p>
             </div>
             <div>
-              <p className="text-2xl font-bold text-white">{user.longestStreak}</p>
+              <p className="text-2xl font-bold text-white">
+                {user.longestStreak}
+              </p>
               <p className="text-xs text-zinc-500">Best Streak</p>
             </div>
           </div>
@@ -266,10 +303,10 @@ export function SettingsForm({ user, subscription }: SettingsFormProps) {
       </Card>
 
       {/* Danger Zone */}
-      <Card className="bg-zinc-900/50 border-red-900/50">
+      <Card className="border-red-900/50 bg-zinc-900/50">
         <CardHeader>
-          <CardTitle className="text-lg text-red-400 flex items-center gap-2">
-            <AlertTriangle className="w-5 h-5" />
+          <CardTitle className="flex items-center gap-2 text-lg text-red-400">
+            <AlertTriangle className="h-5 w-5" />
             Danger Zone
           </CardTitle>
         </CardHeader>
@@ -277,7 +314,7 @@ export function SettingsForm({ user, subscription }: SettingsFormProps) {
           {!showDeleteConfirm ? (
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-white font-medium">Delete Account</p>
+                <p className="font-medium text-white">Delete Account</p>
                 <p className="text-sm text-zinc-400">
                   Permanently delete your account and all data
                 </p>
@@ -287,15 +324,15 @@ export function SettingsForm({ user, subscription }: SettingsFormProps) {
                 onClick={() => setShowDeleteConfirm(true)}
                 className="border-red-900 text-red-400 hover:bg-red-500/10"
               >
-                <Trash2 className="w-4 h-4 mr-2" />
+                <Trash2 className="mr-2 h-4 w-4" />
                 Delete
               </Button>
             </div>
           ) : (
             <div className="space-y-4">
               <p className="text-red-400">
-                Are you sure? This action cannot be undone. All your sessions, feedback, and
-                progress will be permanently deleted.
+                Are you sure? This action cannot be undone. All your sessions,
+                feedback, and progress will be permanently deleted.
               </p>
               <div className="flex gap-3">
                 <Button
@@ -311,9 +348,9 @@ export function SettingsForm({ user, subscription }: SettingsFormProps) {
                   className="bg-red-600 hover:bg-red-700"
                 >
                   {isDeleting ? (
-                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                   ) : (
-                    <Trash2 className="w-4 h-4 mr-2" />
+                    <Trash2 className="mr-2 h-4 w-4" />
                   )}
                   Yes, Delete My Account
                 </Button>

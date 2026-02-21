@@ -15,12 +15,10 @@ const isDevelopment = process.env.NODE_ENV === 'development'
 
 function formatLog(entry: LogEntry): string {
   if (isDevelopment) {
-    const contextStr = entry.context 
-      ? ` ${JSON.stringify(entry.context)}` 
-      : ''
+    const contextStr = entry.context ? ` ${JSON.stringify(entry.context)}` : ''
     return `[${entry.level.toUpperCase()}] ${entry.message}${contextStr}`
   }
-  
+
   // Production: JSON format for log aggregation
   return JSON.stringify(entry)
 }
@@ -32,9 +30,9 @@ function log(level: LogLevel, message: string, context?: LogContext): void {
     timestamp: new Date().toISOString(),
     context,
   }
-  
+
   const formatted = formatLog(entry)
-  
+
   switch (level) {
     case 'debug':
       if (isDevelopment) console.debug(formatted)
@@ -52,8 +50,12 @@ function log(level: LogLevel, message: string, context?: LogContext): void {
 }
 
 export const logger = {
-  debug: (message: string, context?: LogContext) => log('debug', message, context),
-  info: (message: string, context?: LogContext) => log('info', message, context),
-  warn: (message: string, context?: LogContext) => log('warn', message, context),
-  error: (message: string, context?: LogContext) => log('error', message, context),
+  debug: (message: string, context?: LogContext) =>
+    log('debug', message, context),
+  info: (message: string, context?: LogContext) =>
+    log('info', message, context),
+  warn: (message: string, context?: LogContext) =>
+    log('warn', message, context),
+  error: (message: string, context?: LogContext) =>
+    log('error', message, context),
 }

@@ -11,7 +11,7 @@ export function useAudioPlayer() {
   const playAudio = useCallback(async (audioData: ArrayBuffer) => {
     try {
       setError(null)
-      
+
       // Stop any currently playing audio
       if (sourceRef.current) {
         sourceRef.current.stop()
@@ -28,13 +28,15 @@ export function useAudioPlayer() {
       }
 
       // Decode audio data
-      const audioBuffer = await audioContextRef.current.decodeAudioData(audioData.slice(0))
-      
+      const audioBuffer = await audioContextRef.current.decodeAudioData(
+        audioData.slice(0)
+      )
+
       // Create and play source
       const source = audioContextRef.current.createBufferSource()
       source.buffer = audioBuffer
       source.connect(audioContextRef.current.destination)
-      
+
       source.onended = () => {
         setIsPlaying(false)
         sourceRef.current = null

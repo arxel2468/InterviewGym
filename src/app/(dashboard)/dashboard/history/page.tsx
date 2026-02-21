@@ -3,22 +3,22 @@ import { prisma } from '@/lib/prisma'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import Link from 'next/link'
-import { 
-  Plus, 
-  Calendar, 
-  Clock, 
+import {
+  Plus,
+  Calendar,
+  Clock,
   Target,
   TrendingUp,
   MessageSquare,
   ChevronRight,
-  BarChart3
+  BarChart3,
 } from 'lucide-react'
 
 export default async function HistoryPage() {
   const user = await requireAuth()
 
   const sessions = await prisma.session.findMany({
-    where: { 
+    where: {
       userId: user.id,
       status: 'completed',
     },
@@ -30,48 +30,62 @@ export default async function HistoryPage() {
 
   // Calculate stats
   const totalSessions = sessions.length
-  const averageScore = sessions.length > 0
-    ? Math.round(
-        sessions.reduce((sum, s) => sum + (s.metrics?.overallScore || 0), 0) / sessions.length
-      )
-    : 0
-  const totalPracticeTime = sessions.reduce((sum, s) => sum + (s.durationSeconds || 0), 0)
-  const bestScore = sessions.length > 0
-    ? Math.max(...sessions.map(s => s.metrics?.overallScore || 0))
-    : 0
+  const averageScore =
+    sessions.length > 0
+      ? Math.round(
+          sessions.reduce((sum, s) => sum + (s.metrics?.overallScore || 0), 0) /
+            sessions.length
+        )
+      : 0
+  const totalPracticeTime = sessions.reduce(
+    (sum, s) => sum + (s.durationSeconds || 0),
+    0
+  )
+  const bestScore =
+    sessions.length > 0
+      ? Math.max(...sessions.map((s) => s.metrics?.overallScore || 0))
+      : 0
 
   // Group sessions by month
-  const sessionsByMonth = sessions.reduce((acc, session) => {
-    const date = session.completedAt ? new Date(session.completedAt) : new Date(session.createdAt)
-    const monthKey = date.toLocaleDateString('en-US', { year: 'numeric', month: 'long' })
-    
-    if (!acc[monthKey]) {
-      acc[monthKey] = []
-    }
-    acc[monthKey].push(session)
-    return acc
-  }, {} as Record<string, typeof sessions>)
+  const sessionsByMonth = sessions.reduce(
+    (acc, session) => {
+      const date = session.completedAt
+        ? new Date(session.completedAt)
+        : new Date(session.createdAt)
+      const monthKey = date.toLocaleDateString('en-US', {
+        year: 'numeric',
+        month: 'long',
+      })
+
+      if (!acc[monthKey]) {
+        acc[monthKey] = []
+      }
+      acc[monthKey].push(session)
+      return acc
+    },
+    {} as Record<string, typeof sessions>
+  )
 
   return (
-    <div className="max-w-4xl mx-auto space-y-8">
+    <div className="mx-auto max-w-4xl space-y-8">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-semibold text-white">Training History</h1>
-          <p className="text-zinc-400 mt-1">
-            Track your progress over time
-          </p>
+          <h1 className="text-2xl font-semibold text-white">
+            Training History
+          </h1>
+          <p className="mt-1 text-zinc-400">Track your progress over time</p>
         </div>
         <Link href="/dashboard/session/new">
           <Button className="bg-gradient-primary hover:opacity-90">
-            <Plus className="w-4 h-4 mr-2" />
+            <Plus className="mr-2 h-4 w-4" />
             New Session
           </Button>
         </Link>
       </div>
 
       {/* Stats Overview */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
         <StatCard
           icon={BarChart3}
           label="Total Sessions"
@@ -103,8 +117,8 @@ export default async function HistoryPage() {
         <div className="space-y-8">
           {Object.entries(sessionsByMonth).map(([month, monthSessions]) => (
             <div key={month}>
-              <h2 className="text-sm font-medium text-zinc-400 mb-4 flex items-center gap-2">
-                <Calendar className="w-4 h-4" />
+              <h2 className="mb-4 flex items-center gap-2 text-sm font-medium text-zinc-400">
+                <Calendar className="h-4 w-4" />
                 {month}
               </h2>
               <div className="space-y-3">
@@ -116,18 +130,20 @@ export default async function HistoryPage() {
           ))}
         </div>
       ) : (
-        <Card className="bg-zinc-900/50 border-zinc-800">
+        <Card className="border-zinc-800 bg-zinc-900/50">
           <CardContent className="py-12 text-center">
-            <div className="w-16 h-16 rounded-full bg-zinc-800 flex items-center justify-center mx-auto mb-4">
-              <MessageSquare className="w-8 h-8 text-zinc-500" />
+            <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-zinc-800">
+              <MessageSquare className="h-8 w-8 text-zinc-500" />
             </div>
-            <h3 className="text-lg font-medium text-white mb-2">No sessions yet</h3>
-            <p className="text-zinc-400 mb-6">
+            <h3 className="mb-2 text-lg font-medium text-white">
+              No sessions yet
+            </h3>
+            <p className="mb-6 text-zinc-400">
               Complete your first practice session to see your history here.
             </p>
             <Link href="/dashboard/session/new">
               <Button className="bg-gradient-primary hover:opacity-90">
-                <Plus className="w-4 h-4 mr-2" />
+                <Plus className="mr-2 h-4 w-4" />
                 Start Your First Session
               </Button>
             </Link>
@@ -155,12 +171,12 @@ function formatDuration(seconds: number): string {
 }
 
 // Component: Stat Card
-function StatCard({ 
-  icon: Icon, 
-  label, 
-  value, 
-  color 
-}: { 
+function StatCard({
+  icon: Icon,
+  label,
+  value,
+  color,
+}: {
   icon: React.ElementType
   label: string
   value: string
@@ -174,11 +190,11 @@ function StatCard({
   }
 
   return (
-    <Card className="bg-zinc-900/50 border-zinc-800">
+    <Card className="border-zinc-800 bg-zinc-900/50">
       <CardContent className="pt-6">
         <div className="flex items-center gap-3">
-          <div className={`p-2 rounded-lg ${colorClasses[color]}`}>
-            <Icon className="w-5 h-5" />
+          <div className={`rounded-lg p-2 ${colorClasses[color]}`}>
+            <Icon className="h-5 w-5" />
           </div>
           <div>
             <p className="text-2xl font-semibold text-white">{value}</p>
@@ -191,9 +207,9 @@ function StatCard({
 }
 
 // Component: Session Card
-function SessionCard({ 
-  session 
-}: { 
+function SessionCard({
+  session,
+}: {
   session: {
     id: string
     interviewType: string
@@ -207,9 +223,11 @@ function SessionCard({
     } | null
   }
 }) {
-  const date = session.completedAt ? new Date(session.completedAt) : new Date(session.createdAt)
+  const date = session.completedAt
+    ? new Date(session.completedAt)
+    : new Date(session.createdAt)
   const score = session.metrics?.overallScore || 0
-  
+
   const getScoreColor = (score: number) => {
     if (score >= 8) return 'text-green-400'
     if (score >= 6) return 'text-violet-400'
@@ -228,52 +246,54 @@ function SessionCard({
 
   return (
     <Link href={`/dashboard/session/${session.id}/feedback`}>
-      <Card className="bg-zinc-900/50 border-zinc-800 hover:border-zinc-700 transition-colors cursor-pointer">
+      <Card className="cursor-pointer border-zinc-800 bg-zinc-900/50 transition-colors hover:border-zinc-700">
         <CardContent className="py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
               {/* Score */}
-              <div className="w-12 h-12 rounded-lg bg-zinc-800 flex items-center justify-center">
+              <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-zinc-800">
                 <span className={`text-xl font-bold ${getScoreColor(score)}`}>
                   {score}
                 </span>
               </div>
-              
+
               {/* Details */}
               <div>
-                <div className="flex items-center gap-2 mb-1">
-                  <p className="text-white font-medium capitalize">
+                <div className="mb-1 flex items-center gap-2">
+                  <p className="font-medium capitalize text-white">
                     {session.interviewType.replace('_', ' ')} Interview
                   </p>
-                  <span className={`text-xs px-2 py-0.5 rounded-full border capitalize ${getDifficultyBadge(session.difficulty)}`}>
+                  <span
+                    className={`rounded-full border px-2 py-0.5 text-xs capitalize ${getDifficultyBadge(session.difficulty)}`}
+                  >
                     {session.difficulty}
                   </span>
                 </div>
                 <div className="flex items-center gap-3 text-sm text-zinc-500">
                   <span className="flex items-center gap-1">
-                    <Calendar className="w-3 h-3" />
-                    {date.toLocaleDateString('en-US', { 
-                      month: 'short', 
+                    <Calendar className="h-3 w-3" />
+                    {date.toLocaleDateString('en-US', {
+                      month: 'short',
                       day: 'numeric',
                       hour: 'numeric',
-                      minute: '2-digit'
+                      minute: '2-digit',
                     })}
                   </span>
                   {session.durationSeconds && (
                     <span className="flex items-center gap-1">
-                      <Clock className="w-3 h-3" />
+                      <Clock className="h-3 w-3" />
                       {formatDuration(session.durationSeconds)}
                     </span>
                   )}
                   <span className="flex items-center gap-1">
-                    <MessageSquare className="w-3 h-3" />
+                    <MessageSquare className="h-3 w-3" />
                     {session.metrics?.questionsAnswered || 0} responses
                   </span>
                 </div>
               </div>
             </div>
-            
-            <ChevronRight className="w-5 h-5 text-zinc-600" />
+
+            <ChevronRight className="h-5 w-5 text-zinc-600" />
           </div>
         </CardContent>
       </Card>

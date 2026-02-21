@@ -13,7 +13,14 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { cn } from '@/lib/utils'
-import { Home, Plus, BarChart3, Settings, LogOut, CreditCard } from 'lucide-react'
+import {
+  Home,
+  Plus,
+  BarChart3,
+  Settings,
+  LogOut,
+  CreditCard,
+} from 'lucide-react'
 
 const navItems = [
   { href: '/dashboard', label: 'Home', icon: Home },
@@ -30,8 +37,8 @@ export function DashboardNav({ user }: DashboardNavProps) {
   const pathname = usePathname()
 
   return (
-    <nav className="border-b border-zinc-800/50 bg-[#09090B]/80 backdrop-blur-md sticky top-0 z-50">
-      <div className="container mx-auto px-4 max-w-6xl">
+    <nav className="sticky top-0 z-50 border-b border-zinc-800/50 bg-[#09090B]/80 backdrop-blur-md">
+      <div className="container mx-auto max-w-6xl px-4">
         <div className="flex h-14 items-center justify-between">
           {/* Logo */}
           <Link href="/dashboard" className="flex items-center gap-2">
@@ -41,7 +48,7 @@ export function DashboardNav({ user }: DashboardNavProps) {
           </Link>
 
           {/* Nav Items */}
-          <div className="hidden md:flex items-center gap-1">
+          <div className="hidden items-center gap-1 md:flex">
             {navItems.map((item) => {
               const Icon = item.icon
               const isActive = pathname === item.href
@@ -50,13 +57,13 @@ export function DashboardNav({ user }: DashboardNavProps) {
                   key={item.href}
                   href={item.href}
                   className={cn(
-                    'flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-medium transition-colors',
+                    'flex items-center gap-2 rounded-md px-3 py-1.5 text-sm font-medium transition-colors',
                     isActive
                       ? 'bg-zinc-800 text-white'
-                      : 'text-zinc-400 hover:text-white hover:bg-zinc-800/50'
+                      : 'text-zinc-400 hover:bg-zinc-800/50 hover:text-white'
                   )}
                 >
-                  <Icon className="w-4 h-4" />
+                  <Icon className="h-4 w-4" />
                   {item.label}
                 </Link>
               )
@@ -68,30 +75,44 @@ export function DashboardNav({ user }: DashboardNavProps) {
             <DropdownMenuTrigger asChild>
               <Button variant="ghost" className="relative h-8 w-8 rounded-full">
                 <Avatar className="h-8 w-8">
-                  <AvatarImage src={user.avatarUrl || ''} alt={user.name || 'User'} />
-                  <AvatarFallback className="bg-violet-600 text-white text-sm">
+                  <AvatarImage
+                    src={user.avatarUrl || ''}
+                    alt={user.name || 'User'}
+                  />
+                  <AvatarFallback className="bg-violet-600 text-sm text-white">
                     {user.name?.charAt(0) || user.email?.charAt(0) || '?'}
                   </AvatarFallback>
                 </Avatar>
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent className="w-56 bg-zinc-900 border-zinc-800" align="end">
+            <DropdownMenuContent
+              className="w-56 border-zinc-800 bg-zinc-900"
+              align="end"
+            >
               <div className="px-3 py-2">
-                <p className="text-sm font-medium text-white truncate">{user.name || 'User'}</p>
-                <p className="text-xs text-zinc-500 truncate">{user.email}</p>
+                <p className="truncate text-sm font-medium text-white">
+                  {user.name || 'User'}
+                </p>
+                <p className="truncate text-xs text-zinc-500">{user.email}</p>
               </div>
               <DropdownMenuSeparator className="bg-zinc-800" />
               <DropdownMenuItem asChild>
-                <Link href="/dashboard/settings" className="flex items-center gap-2 text-zinc-300 cursor-pointer">
-                  <Settings className="w-4 h-4" />
+                <Link
+                  href="/dashboard/settings"
+                  className="flex cursor-pointer items-center gap-2 text-zinc-300"
+                >
+                  <Settings className="h-4 w-4" />
                   Settings
                 </Link>
               </DropdownMenuItem>
               <DropdownMenuSeparator className="bg-zinc-800" />
               <form action="/logout" method="POST">
                 <DropdownMenuItem asChild>
-                  <button type="submit" className="flex items-center gap-2 w-full text-left text-red-400 cursor-pointer">
-                    <LogOut className="w-4 h-4" />
+                  <button
+                    type="submit"
+                    className="flex w-full cursor-pointer items-center gap-2 text-left text-red-400"
+                  >
+                    <LogOut className="h-4 w-4" />
                     Sign out
                   </button>
                 </DropdownMenuItem>

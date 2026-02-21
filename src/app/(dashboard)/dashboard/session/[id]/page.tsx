@@ -11,17 +11,17 @@ interface PageProps {
 export default async function SessionPage({ params }: PageProps) {
   const { id } = await params
   const user = await requireAuth()
-  
-  logger.info(`Loading session: ${id} for user: ${user.id}`);
-  
+
+  logger.info(`Loading session: ${id} for user: ${user.id}`)
+
   const session = await prisma.session.findUnique({
-    where: { 
+    where: {
       id: id,
       userId: user.id,
     },
   })
 
-  logger.info(`Session found: ${session ?? 'null'}`);
+  logger.info(`Session found: ${session ?? 'null'}`)
 
   if (!session) {
     logger.info('Session not found, returning 404')
@@ -34,7 +34,7 @@ export default async function SessionPage({ params }: PageProps) {
   }
 
   return (
-    <InterviewSession 
+    <InterviewSession
       sessionId={session.id}
       difficulty={session.difficulty as 'warmup' | 'standard' | 'intense'}
       interviewType={session.interviewType}

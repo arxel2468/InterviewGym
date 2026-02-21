@@ -18,16 +18,18 @@ export const getActiveSession = cache(async (userId: string) => {
   })
 })
 
-export const getSessionWithFeedback = cache(async (sessionId: string, userId: string) => {
-  return prisma.session.findUnique({
-    where: { id: sessionId, userId },
-    include: {
-      messages: { orderBy: { orderIndex: 'asc' } },
-      metrics: true,
-      feedback: true,
-    },
-  })
-})
+export const getSessionWithFeedback = cache(
+  async (sessionId: string, userId: string) => {
+    return prisma.session.findUnique({
+      where: { id: sessionId, userId },
+      include: {
+        messages: { orderBy: { orderIndex: 'asc' } },
+        metrics: true,
+        feedback: true,
+      },
+    })
+  }
+)
 
 export const getUserStats = cache(async (userId: string) => {
   const [sessions, avgScore] = await Promise.all([

@@ -6,7 +6,7 @@ import { createClient } from '@/lib/supabase/server'
 export async function GET() {
   try {
     const rankings = await getModelRankings()
-    
+
     return NextResponse.json({
       success: true,
       rankings: {
@@ -26,9 +26,9 @@ export async function GET() {
   } catch (error: any) {
     console.error('Failed to get model rankings:', error)
     return NextResponse.json(
-      { 
-        success: false, 
-        error: error.message || 'Failed to get models' 
+      {
+        success: false,
+        error: error.message || 'Failed to get models',
       },
       { status: 500 }
     )
@@ -38,13 +38,15 @@ export async function GET() {
 // POST: Force refresh the cache
 export async function POST() {
   const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
   if (!user) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
   try {
     const rankings = await forceRefreshCache()
-    
+
     return NextResponse.json({
       success: true,
       message: 'Cache refreshed successfully',
@@ -62,9 +64,9 @@ export async function POST() {
   } catch (error: any) {
     console.error('Failed to refresh model cache:', error)
     return NextResponse.json(
-      { 
-        success: false, 
-        error: error.message || 'Failed to refresh cache' 
+      {
+        success: false,
+        error: error.message || 'Failed to refresh cache',
       },
       { status: 500 }
     )

@@ -13,7 +13,8 @@ export const PERSONAS: Record<Difficulty, InterviewerPersona> = {
   warmup: {
     name: 'Sarah Chen',
     title: 'Engineering Manager',
-    style: 'Friendly, supportive, encouraging. Creates a safe space for the candidate.',
+    style:
+      'Friendly, supportive, encouraging. Creates a safe space for the candidate.',
     behaviors: [
       'Smile through your voice - be warm and encouraging',
       'If candidate struggles, offer a gentle prompt: "Take your time" or "Would you like me to rephrase?"',
@@ -22,16 +23,16 @@ export const PERSONAS: Record<Difficulty, InterviewerPersona> = {
       'If answer is weak, gently redirect rather than challenge',
     ],
     responsePatterns: [
-      'That\'s interesting, thank you for sharing.',
+      "That's interesting, thank you for sharing.",
       'I appreciate you being open about that.',
       'Great, that gives me good context.',
       'Thanks for walking me through that.',
     ],
     transitions: [
-      'Let\'s shift gears a bit.',
-      'I\'d love to hear about another experience.',
+      "Let's shift gears a bit.",
+      "I'd love to hear about another experience.",
       'Moving on to something different...',
-      'Here\'s another area I\'m curious about.',
+      "Here's another area I'm curious about.",
     ],
   },
 
@@ -47,18 +48,12 @@ export const PERSONAS: Record<Difficulty, InterviewerPersona> = {
       'If answer lacks structure, ask clarifying questions to get the full story',
       'Don\'t accept "we" - ask "what specifically did YOU do?"',
     ],
-    responsePatterns: [
-      'I see.',
-      'Understood.',
-      'Okay.',
-      'Right.',
-      'Got it.',
-    ],
+    responsePatterns: ['I see.', 'Understood.', 'Okay.', 'Right.', 'Got it.'],
     transitions: [
-      'Let\'s move to a different topic.',
+      "Let's move to a different topic.",
       'I want to ask you about...',
       'Switching gears...',
-      'Here\'s a different kind of question.',
+      "Here's a different kind of question.",
     ],
   },
 
@@ -69,26 +64,20 @@ export const PERSONAS: Record<Difficulty, InterviewerPersona> = {
     behaviors: [
       'Be direct and economical with words',
       'Challenge vague answers immediately: "That\'s too general. Give me specifics."',
-      'Use silence strategically - don\'t fill pauses',
+      "Use silence strategically - don't fill pauses",
       'Question claims: "How do you know that worked?" "What data supports that?"',
       'Push back on weak reasoning: "I\'m not sure I follow. Why would that be the right approach?"',
       'If candidate uses "we", interrupt: "I want to know what YOU did, specifically."',
-      'Don\'t reassure or encourage - stay neutral',
+      "Don't reassure or encourage - stay neutral",
       'Ask "why" repeatedly to test depth',
       'Create mild discomfort to see how they handle pressure',
       'If the candidate has been talking for more than 60 seconds on one point, interrupt with: "Let me stop you there." or "Can you get to the outcome?"',
       'Occasionally ask "Why?" with nothing else — force them to justify',
     ],
-    responsePatterns: [
-      '...',
-      'Hmm.',
-      'Okay.',
-      'And?',
-      'Go on.',
-    ],
+    responsePatterns: ['...', 'Hmm.', 'Okay.', 'And?', 'Go on.'],
     transitions: [
       'Next question.',
-      'Let\'s move on.',
+      "Let's move on.",
       'Different topic.',
       'Tell me about...',
     ],

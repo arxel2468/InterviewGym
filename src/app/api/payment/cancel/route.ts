@@ -22,7 +22,10 @@ export async function POST() {
     })
 
     if (!subscription || !subscription.razorpaySubId) {
-      return NextResponse.json({ error: 'No active subscription' }, { status: 404 })
+      return NextResponse.json(
+        { error: 'No active subscription' },
+        { status: 404 }
+      )
     }
 
     // Cancel in Razorpay

@@ -11,8 +11,10 @@ export async function GET(request: Request) {
 
   // Handle OAuth errors (including from URL hash)
   if (error) {
-    logger.error('OAuth error:', {error, errorDescription})
-    return NextResponse.redirect(`${origin}/login?error=${encodeURIComponent(errorDescription || error)}`)
+    logger.error('OAuth error:', { error, errorDescription })
+    return NextResponse.redirect(
+      `${origin}/login?error=${encodeURIComponent(errorDescription || error)}`
+    )
   }
 
   if (!code) {
@@ -29,11 +31,14 @@ export async function GET(request: Request) {
       return NextResponse.redirect(`${origin}/login?error=auth_init_failed`)
     }
 
-    const { data, error: sessionError } = await supabase.auth.exchangeCodeForSession(code)
+    const { data, error: sessionError } =
+      await supabase.auth.exchangeCodeForSession(code)
 
     if (sessionError) {
       logger.error('Session exchange error:', { message: sessionError.message })
-      return NextResponse.redirect(`${origin}/login?error=${encodeURIComponent(sessionError.message)}`)
+      return NextResponse.redirect(
+        `${origin}/login?error=${encodeURIComponent(sessionError.message)}`
+      )
     }
 
     if (!data.user) {
@@ -46,19 +51,21 @@ export async function GET(request: Request) {
       where: { id: data.user.id },
       update: {
         email: data.user.email!,
-        name: data.user.user_metadata?.full_name ||
-              data.user.user_metadata?.name ||
-              data.user.user_metadata?.user_name ||
-              null,
+        name:
+          data.user.user_metadata?.full_name ||
+          data.user.user_metadata?.name ||
+          data.user.user_metadata?.user_name ||
+          null,
         avatarUrl: data.user.user_metadata?.avatar_url || null,
       },
       create: {
         id: data.user.id,
         email: data.user.email!,
-        name: data.user.user_metadata?.full_name ||
-              data.user.user_metadata?.name ||
-              data.user.user_metadata?.user_name ||
-              null,
+        name:
+          data.user.user_metadata?.full_name ||
+          data.user.user_metadata?.name ||
+          data.user.user_metadata?.user_name ||
+          null,
         avatarUrl: data.user.user_metadata?.avatar_url || null,
       },
     })

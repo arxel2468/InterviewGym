@@ -92,5 +92,3 @@ npm run test:coverage
 ## Questions?
 
 Open an issue or start a discussion. We're happy to help!
-
-

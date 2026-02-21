@@ -7,7 +7,12 @@ import { checkRateLimit } from '@/lib/rate-limit'
 import { z } from 'zod'
 
 const createSessionSchema = z.object({
-  interviewType: z.enum(['behavioral', 'technical', 'hr_screen', 'system_design']),
+  interviewType: z.enum([
+    'behavioral',
+    'technical',
+    'hr_screen',
+    'system_design',
+  ]),
   difficulty: z.enum(['warmup', 'standard', 'intense']),
   targetRole: z.string().optional(),
   useResume: z.boolean().optional(),
@@ -16,7 +21,9 @@ const createSessionSchema = z.object({
 export async function POST(request: Request) {
   try {
     const supabase = await createClient()
-    const { data: { user } } = await supabase.auth.getUser()
+    const {
+      data: { user },
+    } = await supabase.auth.getUser()
 
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
@@ -25,15 +32,19 @@ export async function POST(request: Request) {
     const rateLimit = await checkRateLimit(user.id)
 
     if (!rateLimit.allowed) {
-      return NextResponse.json({
-        error: 'Daily limit reached',
-        message: `You've used all ${10} sessions for today. Come back tomorrow!`,
-        resetAt: rateLimit.resetAt,
-      }, { status: 429 })
+      return NextResponse.json(
+        {
+          error: 'Daily limit reached',
+          message: `You've used all ${10} sessions for today. Come back tomorrow!`,
+          resetAt: rateLimit.resetAt,
+        },
+        { status: 429 }
+      )
     }
 
     const body = await request.json()
-    const { interviewType, difficulty, targetRole, useResume } = createSessionSchema.parse(body)
+    const { interviewType, difficulty, targetRole, useResume } =
+      createSessionSchema.parse(body)
 
     // Check for existing in-progress session
     const existingSession = await prisma.session.findFirst({

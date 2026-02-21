@@ -56,10 +56,16 @@ export function SilenceTimer({ isActive, difficulty }: SilenceTimerProps) {
       : ''
 
   return (
-    <div className={`flex items-center gap-2 text-xs ${color} transition-colors`}>
+    <div
+      className={`flex items-center gap-2 text-xs ${color} transition-colors`}
+    >
       <div
-        className={`w-2 h-2 rounded-full ${
-          isCritical ? 'bg-red-400 animate-pulse' : isWarning ? 'bg-amber-400' : 'bg-zinc-600'
+        className={`h-2 w-2 rounded-full ${
+          isCritical
+            ? 'animate-pulse bg-red-400'
+            : isWarning
+              ? 'bg-amber-400'
+              : 'bg-zinc-600'
         }`}
       />
       <span>{seconds}s</span>

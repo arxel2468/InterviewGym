@@ -43,7 +43,9 @@ function isTTSModel(model: GroqModel): boolean {
 
 function isSafetyModel(model: GroqModel): boolean {
   const id = model.id.toLowerCase()
-  return id.includes('guard') || id.includes('safeguard') || id.includes('safety')
+  return (
+    id.includes('guard') || id.includes('safeguard') || id.includes('safety')
+  )
 }
 
 function isChatModel(model: GroqModel): boolean {
@@ -72,69 +74,71 @@ function extractVersionNumber(modelId: string): number {
 
 function rankSTTModels(models: GroqModel[]): string[] {
   const sttModels = models.filter(isSTTModel)
-  
+
   return sttModels
     .sort((a, b) => {
       const aId = a.id.toLowerCase()
       const bId = b.id.toLowerCase()
-      
+
       const aTurbo = aId.includes('turbo') ? 1 : 0
       const bTurbo = bId.includes('turbo') ? 1 : 0
       if (bTurbo !== aTurbo) return bTurbo - aTurbo
-      
+
       const aVersion = extractVersionNumber(aId)
       const bVersion = extractVersionNumber(bId)
       if (bVersion !== aVersion) return bVersion - aVersion
-      
+
       return b.created - a.created
     })
-    .map(m => m.id)
+    .map((m) => m.id)
 }
 
 function rankTTSModels(models: GroqModel[]): string[] {
   const ttsModels = models.filter(isTTSModel)
-  
+
   return ttsModels
     .sort((a, b) => {
       const aId = a.id.toLowerCase()
       const bId = b.id.toLowerCase()
-      
+
       const aArabic = aId.includes('arabic') ? 1 : 0
       const bArabic = bId.includes('arabic') ? 1 : 0
       if (aArabic !== bArabic) return aArabic - bArabic
-      
+
       const aOrpheus = aId.includes('orpheus') ? 1 : 0
       const bOrpheus = bId.includes('orpheus') ? 1 : 0
       if (bOrpheus !== aOrpheus) return bOrpheus - aOrpheus
-      
+
       return b.created - a.created
     })
-    .map(m => m.id)
+    .map((m) => m.id)
 }
 
 function rankChatModels(models: GroqModel[]): string[] {
   const chatModels = models.filter(isChatModel)
-  
+
   return chatModels
     .sort((a, b) => {
       const aId = a.id.toLowerCase()
       const bId = b.id.toLowerCase()
-      
+
       const aParams = extractParameterCount(aId)
       const bParams = extractParameterCount(bId)
       if (bParams !== aParams) return bParams - aParams
-      
-      const aVersatile = (aId.includes('versatile') || aId.includes('instruct')) ? 1 : 0
-      const bVersatile = (bId.includes('versatile') || bId.includes('instruct')) ? 1 : 0
+
+      const aVersatile =
+        aId.includes('versatile') || aId.includes('instruct') ? 1 : 0
+      const bVersatile =
+        bId.includes('versatile') || bId.includes('instruct') ? 1 : 0
       if (bVersatile !== aVersatile) return bVersatile - aVersatile
-      
+
       if (b.context_window !== a.context_window) {
         return b.context_window - a.context_window
       }
-      
+
       return b.created - a.created
     })
-    .map(m => m.id)
+    .map((m) => m.id)
 }
 
 // ============================================
@@ -147,13 +151,13 @@ async function fetchModelsFromGroq(): Promise<GroqModel[]> {
   })
 
   const response = await groq.models.list()
-  
+
   // Cast to any because Groq SDK types don't include all fields returned by API
   const models = response.data as any[]
-  
+
   return models
-    .filter(m => m.active !== false)
-    .map(m => ({
+    .filter((m) => m.active !== false)
+    .map((m) => ({
       id: m.id,
       object: m.object,
       created: m.created,
@@ -166,16 +170,16 @@ async function fetchModelsFromGroq(): Promise<GroqModel[]> {
 
 export async function refreshModelCache(): Promise<ModelRankings> {
   logger.info('Refreshing model cache from Groq...')
-  
+
   const models = await fetchModelsFromGroq()
-  
+
   const sttModels = rankSTTModels(models)
   const ttsModels = rankTTSModels(models)
   const chatModels = rankChatModels(models)
-  
+
   const now = new Date()
   const expiresAt = new Date(now.getTime() + CACHE_DURATION_MS)
-  
+
   await prisma.modelCache.upsert({
     where: { id: 'singleton' },
     update: {
@@ -196,13 +200,13 @@ export async function refreshModelCache(): Promise<ModelRankings> {
       expiresAt: expiresAt,
     },
   })
-  
+
   logger.info('Model cache refreshed:', {
     stt: sttModels,
     tts: ttsModels,
     chat: chatModels.slice(0, 5),
   })
-  
+
   return {
     stt: sttModels,
     tts: ttsModels,
@@ -217,7 +221,7 @@ export async function getModelRankings(): Promise<ModelRankings> {
   const cached = await prisma.modelCache.findUnique({
     where: { id: 'singleton' },
   })
-  
+
   if (cached && new Date() < new Date(cached.expiresAt)) {
     return {
       stt: cached.sttModels as string[],
@@ -228,13 +232,15 @@ export async function getModelRankings(): Promise<ModelRankings> {
       expiresAt: cached.expiresAt,
     }
   }
-  
+
   return await refreshModelCache()
 }
 
-export async function getBestModel(category: ModelCategory): Promise<string | null> {
+export async function getBestModel(
+  category: ModelCategory
+): Promise<string | null> {
   const rankings = await getModelRankings()
-  
+
   switch (category) {
     case 'stt':
       return rankings.stt[0] || null
@@ -247,9 +253,11 @@ export async function getBestModel(category: ModelCategory): Promise<string | nu
   }
 }
 
-export async function getModelFallbacks(category: ModelCategory): Promise<string[]> {
+export async function getModelFallbacks(
+  category: ModelCategory
+): Promise<string[]> {
   const rankings = await getModelRankings()
-  
+
   switch (category) {
     case 'stt':
       return rankings.stt

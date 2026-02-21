@@ -125,7 +125,8 @@ export function PricingCards({ isLoggedIn, currentPlan }: PricingCardsProps) {
           const script = document.createElement('script')
           script.src = 'https://checkout.razorpay.com/v1/checkout.js'
           script.onload = () => resolve()
-          script.onerror = () => reject(new Error('Failed to load payment system'))
+          script.onerror = () =>
+            reject(new Error('Failed to load payment system'))
           document.body.appendChild(script)
         })
       }
@@ -154,7 +155,9 @@ export function PricingCards({ isLoggedIn, currentPlan }: PricingCardsProps) {
             } else {
               // Payment went through but verification failed
               // Webhook will handle it
-              toast.success('Payment received! Your plan will activate shortly.')
+              toast.success(
+                'Payment received! Your plan will activate shortly.'
+              )
             }
           } catch {
             toast.success('Payment received! Your plan will activate shortly.')
@@ -174,19 +177,22 @@ export function PricingCards({ isLoggedIn, currentPlan }: PricingCardsProps) {
       rzp.on('payment.failed', (response: unknown) => {
         setLoading(null)
         const failedResponse = response as { error?: { description?: string } }
-        const errorMessage = failedResponse?.error?.description || 'Payment failed'
+        const errorMessage =
+          failedResponse?.error?.description || 'Payment failed'
         toast.error(errorMessage)
       })
 
       rzp.open()
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Something went wrong')
+      toast.error(
+        error instanceof Error ? error.message : 'Something went wrong'
+      )
       setLoading(null)
     }
   }
 
   return (
-    <div className="grid md:grid-cols-3 gap-6 max-w-5xl mx-auto">
+    <div className="mx-auto grid max-w-5xl gap-6 md:grid-cols-3">
       {PLANS.map((plan) => {
         const Icon = plan.icon
         const isPopular = 'popular' in plan && plan.popular
@@ -208,7 +214,7 @@ export function PricingCards({ isLoggedIn, currentPlan }: PricingCardsProps) {
           >
             {isPopular && !isCurrentPlan && (
               <div className="absolute -top-3 left-1/2 -translate-x-1/2">
-                <span className="px-3 py-1 text-xs font-medium bg-violet-600 text-white rounded-full">
+                <span className="rounded-full bg-violet-600 px-3 py-1 text-xs font-medium text-white">
                   Most Popular
                 </span>
               </div>
@@ -216,15 +222,15 @@ export function PricingCards({ isLoggedIn, currentPlan }: PricingCardsProps) {
 
             {isCurrentPlan && (
               <div className="absolute -top-3 left-1/2 -translate-x-1/2">
-                <span className="px-3 py-1 text-xs font-medium bg-green-600 text-white rounded-full">
+                <span className="rounded-full bg-green-600 px-3 py-1 text-xs font-medium text-white">
                   Current Plan
                 </span>
               </div>
             )}
 
-            <CardHeader className="text-center pb-4">
-              <div className="w-12 h-12 rounded-lg bg-violet-500/10 flex items-center justify-center mx-auto mb-3">
-                <Icon className="w-6 h-6 text-violet-400" />
+            <CardHeader className="pb-4 text-center">
+              <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-lg bg-violet-500/10">
+                <Icon className="h-6 w-6 text-violet-400" />
               </div>
               <CardTitle className="text-xl text-white">{plan.name}</CardTitle>
               <p className="text-sm text-zinc-400">{plan.description}</p>
@@ -233,8 +239,10 @@ export function PricingCards({ isLoggedIn, currentPlan }: PricingCardsProps) {
                   <span className="text-3xl font-bold text-white">Free</span>
                 ) : (
                   <div>
-                    <span className="text-3xl font-bold text-white">₹{plan.price}</span>
-                    <span className="text-zinc-400 text-sm">/month</span>
+                    <span className="text-3xl font-bold text-white">
+                      ₹{plan.price}
+                    </span>
+                    <span className="text-sm text-zinc-400">/month</span>
                   </div>
                 )}
               </div>
@@ -245,7 +253,7 @@ export function PricingCards({ isLoggedIn, currentPlan }: PricingCardsProps) {
               <ul className="space-y-2">
                 {plan.features.map((feature, i) => (
                   <li key={i} className="flex items-start gap-2 text-sm">
-                    <Check className="w-4 h-4 text-green-500 mt-0.5 flex-shrink-0" />
+                    <Check className="mt-0.5 h-4 w-4 flex-shrink-0 text-green-500" />
                     <span className="text-zinc-300">{feature}</span>
                   </li>
                 ))}
@@ -253,10 +261,10 @@ export function PricingCards({ isLoggedIn, currentPlan }: PricingCardsProps) {
 
               {/* Excluded features (for free plan) */}
               {'excluded' in plan && plan.excluded.length > 0 && (
-                <ul className="space-y-2 pt-2 border-t border-zinc-800">
+                <ul className="space-y-2 border-t border-zinc-800 pt-2">
                   {plan.excluded.map((feature, i) => (
                     <li key={i} className="flex items-start gap-2 text-sm">
-                      <X className="w-4 h-4 text-zinc-600 mt-0.5 flex-shrink-0" />
+                      <X className="mt-0.5 h-4 w-4 flex-shrink-0 text-zinc-600" />
                       <span className="text-zinc-500">{feature}</span>
                     </li>
                   ))}
@@ -268,20 +276,24 @@ export function PricingCards({ isLoggedIn, currentPlan }: PricingCardsProps) {
                 disabled={loading === plan.id || isCurrentPlan || isDowngrade}
                 className={`w-full ${
                   isCurrentPlan
-                    ? 'bg-green-600/20 text-green-400 cursor-default'
+                    ? 'cursor-default bg-green-600/20 text-green-400'
                     : isPopular
                       ? 'bg-gradient-primary hover:opacity-90'
-                      : 'bg-zinc-800 hover:bg-zinc-700 text-white'
+                      : 'bg-zinc-800 text-white hover:bg-zinc-700'
                 }`}
               >
                 {loading === plan.id ? (
-                  <Loader2 className="w-4 h-4 animate-spin" />
+                  <Loader2 className="h-4 w-4 animate-spin" />
                 ) : isCurrentPlan ? (
                   'Current Plan'
                 ) : isDowngrade ? (
                   'Contact Support'
                 ) : plan.price === 0 ? (
-                  isLoggedIn ? 'Current Plan' : 'Get Started'
+                  isLoggedIn ? (
+                    'Current Plan'
+                  ) : (
+                    'Get Started'
+                  )
                 ) : (
                   'Subscribe'
                 )}

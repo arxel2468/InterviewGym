@@ -5,17 +5,17 @@ import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { toast } from 'sonner'
-import { 
-  Loader2, 
-  Smile, 
-  Briefcase, 
+import {
+  Loader2,
+  Smile,
+  Briefcase,
   Flame,
   MessageSquare,
   Code,
   Users,
   Boxes,
   ArrowRight,
-  HelpCircle
+  HelpCircle,
 } from 'lucide-react'
 import { INTERVIEW_CONFIGS, InterviewType, TargetRole } from '@/lib/questions'
 
@@ -103,9 +103,13 @@ interface SessionSetupFormProps {
   hasResume: boolean
 }
 
-export function SessionSetupForm({ targetRole, hasResume }: SessionSetupFormProps) {
+export function SessionSetupForm({
+  targetRole,
+  hasResume,
+}: SessionSetupFormProps) {
   const router = useRouter()
-  const [interviewType, setInterviewType] = useState<InterviewType>('behavioral')
+  const [interviewType, setInterviewType] =
+    useState<InterviewType>('behavioral')
   const [role, setRole] = useState<TargetRole>(
     (targetRole as TargetRole) || 'fullstack'
   )
@@ -116,8 +120,8 @@ export function SessionSetupForm({ targetRole, hasResume }: SessionSetupFormProp
 
   useEffect(() => {
     fetch('/api/user/plan')
-      .then(res => res.json())
-      .then(data => setUserPlan(data.plan))
+      .then((res) => res.json())
+      .then((data) => setUserPlan(data.plan))
       .catch(() => setUserPlan('free'))
   }, [])
 
@@ -128,7 +132,8 @@ export function SessionSetupForm({ targetRole, hasResume }: SessionSetupFormProp
   }
 
   // Only show role selection for technical interviews
-  const showRoleSelection = interviewType === 'technical' || interviewType === 'system_design'
+  const showRoleSelection =
+    interviewType === 'technical' || interviewType === 'system_design'
 
   const handleStart = async () => {
     if (isLoading) return // Guard
@@ -166,37 +171,50 @@ export function SessionSetupForm({ targetRole, hasResume }: SessionSetupFormProp
         <label className="text-sm font-medium text-zinc-300">
           Interview Type
         </label>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           {INTERVIEW_TYPES.map((type) => {
             const Icon = type.icon
             const isSelected = interviewType === type.value
             return (
               <button
                 key={type.value}
-                onClick={() => !isLocked(type.value) && setInterviewType(type.value)}
-                className={`p-4 rounded-lg border text-left transition-all ${
+                onClick={() =>
+                  !isLocked(type.value) && setInterviewType(type.value)
+                }
+                className={`rounded-lg border p-4 text-left transition-all ${
                   isSelected
                     ? 'border-violet-500 bg-violet-500/10'
-                    : 'border-zinc-800 hover:border-zinc-700 bg-zinc-900/50'
+                    : 'border-zinc-800 bg-zinc-900/50 hover:border-zinc-700'
                 } ${
-                  isLocked(type.value)
-                  ? 'opacity-50 cursor-not-allowed' : ''
+                  isLocked(type.value) ? 'cursor-not-allowed opacity-50' : ''
                 }`}
               >
                 <div className="flex items-start gap-3">
-                  <div className={`p-2 rounded-lg ${isSelected ? 'bg-violet-500/20' : 'bg-zinc-800'}`}>
-                    <Icon className={`w-4 h-4 ${isSelected ? 'text-violet-400' : 'text-zinc-400'}`} />
+                  <div
+                    className={`rounded-lg p-2 ${isSelected ? 'bg-violet-500/20' : 'bg-zinc-800'}`}
+                  >
+                    <Icon
+                      className={`h-4 w-4 ${isSelected ? 'text-violet-400' : 'text-zinc-400'}`}
+                    />
                   </div>
                   <div className="flex-1">
                     <div className="flex items-center justify-between">
-                      <p className="font-medium text-white text-sm">{type.label}</p>
-                      <span className="text-xs text-zinc-500">{type.duration}</span>
+                      <p className="text-sm font-medium text-white">
+                        {type.label}
+                      </p>
+                      <span className="text-xs text-zinc-500">
+                        {type.duration}
+                      </span>
                     </div>
-                    <p className="text-xs text-zinc-500 mt-1">{type.description}</p>
+                    <p className="mt-1 text-xs text-zinc-500">
+                      {type.description}
+                    </p>
                   </div>
                 </div>
                 {isLocked(type.value) && (
-                  <span className="text-xs text-violet-400 mt-1">Student plan</span>
+                  <span className="mt-1 text-xs text-violet-400">
+                    Student plan
+                  </span>
                 )}
               </button>
             )
@@ -206,42 +224,42 @@ export function SessionSetupForm({ targetRole, hasResume }: SessionSetupFormProp
 
       {/* Role Selection (for technical interviews) */}
       {/* Role Selection - Always Show */}
-<div className="space-y-3">
-  <label className="text-sm font-medium text-zinc-300">
-    Target Role
-    {interviewType === 'technical' && (
-      <span className="text-violet-400 ml-2 text-xs">
-        (affects question topics)
-      </span>
-    )}
-  </label>
-  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-    {ROLES.map((r) => {
-      const isSelected = role === r.value
-      return (
-        <button
-          key={r.value}
-          onClick={() => setRole(r.value)}
-          className={`p-3 rounded-lg border text-center transition-all ${
-            isSelected
-              ? 'border-violet-500 bg-violet-500/10'
-              : 'border-zinc-800 hover:border-zinc-700 bg-zinc-900/50'
-          }`}
-        >
-          <p className={`text-sm ${isSelected ? 'text-white' : 'text-zinc-400'}`}>
-            {r.label}
-          </p>
-        </button>
-      )
-    })}
-  </div>
-</div>
+      <div className="space-y-3">
+        <label className="text-sm font-medium text-zinc-300">
+          Target Role
+          {interviewType === 'technical' && (
+            <span className="ml-2 text-xs text-violet-400">
+              (affects question topics)
+            </span>
+          )}
+        </label>
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+          {ROLES.map((r) => {
+            const isSelected = role === r.value
+            return (
+              <button
+                key={r.value}
+                onClick={() => setRole(r.value)}
+                className={`rounded-lg border p-3 text-center transition-all ${
+                  isSelected
+                    ? 'border-violet-500 bg-violet-500/10'
+                    : 'border-zinc-800 bg-zinc-900/50 hover:border-zinc-700'
+                }`}
+              >
+                <p
+                  className={`text-sm ${isSelected ? 'text-white' : 'text-zinc-400'}`}
+                >
+                  {r.label}
+                </p>
+              </button>
+            )
+          })}
+        </div>
+      </div>
 
       {/* Difficulty */}
       <div className="space-y-3">
-        <label className="text-sm font-medium text-zinc-300">
-          Difficulty
-        </label>
+        <label className="text-sm font-medium text-zinc-300">Difficulty</label>
         <div className="grid grid-cols-3 gap-3">
           {DIFFICULTIES.map((diff) => {
             const Icon = diff.icon
@@ -250,15 +268,17 @@ export function SessionSetupForm({ targetRole, hasResume }: SessionSetupFormProp
               <button
                 key={diff.value}
                 onClick={() => setDifficulty(diff.value)}
-                className={`p-4 rounded-lg border text-center transition-all ${
+                className={`rounded-lg border p-4 text-center transition-all ${
                   isSelected
                     ? 'border-violet-500 bg-violet-500/10'
-                    : 'border-zinc-800 hover:border-zinc-700 bg-zinc-900/50'
+                    : 'border-zinc-800 bg-zinc-900/50 hover:border-zinc-700'
                 }`}
               >
-                <Icon className={`w-5 h-5 mx-auto mb-2 ${isSelected ? 'text-violet-400' : 'text-zinc-400'}`} />
-                <p className="font-medium text-white text-sm">{diff.label}</p>
-                <p className="text-xs text-zinc-500 mt-1">{diff.description}</p>
+                <Icon
+                  className={`mx-auto mb-2 h-5 w-5 ${isSelected ? 'text-violet-400' : 'text-zinc-400'}`}
+                />
+                <p className="text-sm font-medium text-white">{diff.label}</p>
+                <p className="mt-1 text-xs text-zinc-500">{diff.description}</p>
               </button>
             )
           })}
@@ -267,17 +287,17 @@ export function SessionSetupForm({ targetRole, hasResume }: SessionSetupFormProp
 
       {/* Resume Toggle */}
       {hasResume && (
-        <Card className="bg-zinc-900/50 border-zinc-800">
+        <Card className="border-zinc-800 bg-zinc-900/50">
           <CardContent className="pt-4">
-            <label className="flex items-center gap-3 cursor-pointer">
+            <label className="flex cursor-pointer items-center gap-3">
               <input
                 type="checkbox"
                 checked={useResume}
                 onChange={(e) => setUseResume(e.target.checked)}
-                className="w-4 h-4 rounded border-zinc-700 bg-zinc-800 text-violet-500 focus:ring-violet-500"
+                className="h-4 w-4 rounded border-zinc-700 bg-zinc-800 text-violet-500 focus:ring-violet-500"
               />
               <div>
-                <p className="text-white font-medium text-sm">Use my resume</p>
+                <p className="text-sm font-medium text-white">Use my resume</p>
                 <p className="text-xs text-zinc-400">
                   Questions will reference your experience
                 </p>
@@ -288,16 +308,22 @@ export function SessionSetupForm({ targetRole, hasResume }: SessionSetupFormProp
       )}
 
       {/* Info Box */}
-      <div className="p-4 rounded-lg bg-zinc-800/50 border border-zinc-700">
+      <div className="rounded-lg border border-zinc-700 bg-zinc-800/50 p-4">
         <div className="flex items-start gap-3">
-          <HelpCircle className="w-5 h-5 text-zinc-400 flex-shrink-0 mt-0.5" />
+          <HelpCircle className="mt-0.5 h-5 w-5 flex-shrink-0 text-zinc-400" />
           <div className="text-sm text-zinc-400">
-            <p className="font-medium text-zinc-300 mb-1">What to expect</p>
+            <p className="mb-1 font-medium text-zinc-300">What to expect</p>
             <ul className="space-y-1 text-xs">
-              <li>• {INTERVIEW_CONFIGS[interviewType].questionCount} questions covering different topics</li>
+              <li>
+                • {INTERVIEW_CONFIGS[interviewType].questionCount} questions
+                covering different topics
+              </li>
               <li>• Follow-up questions based on your answers</li>
               <li>• Detailed feedback at the end</li>
-              <li>• Approximately {INTERVIEW_CONFIGS[interviewType].durationMinutes} minutes</li>
+              <li>
+                • Approximately{' '}
+                {INTERVIEW_CONFIGS[interviewType].durationMinutes} minutes
+              </li>
             </ul>
           </div>
         </div>
@@ -307,17 +333,17 @@ export function SessionSetupForm({ targetRole, hasResume }: SessionSetupFormProp
       <Button
         onClick={handleStart}
         disabled={isLoading}
-        className="w-full h-12 bg-gradient-primary hover:opacity-90 text-lg"
+        className="bg-gradient-primary h-12 w-full text-lg hover:opacity-90"
       >
         {isLoading ? (
           <>
-            <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+            <Loader2 className="mr-2 h-5 w-5 animate-spin" />
             Starting...
           </>
         ) : (
           <>
             Begin Interview
-            <ArrowRight className="w-5 h-5 ml-2" />
+            <ArrowRight className="ml-2 h-5 w-5" />
           </>
         )}
       </Button>

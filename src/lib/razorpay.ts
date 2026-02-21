@@ -26,7 +26,16 @@ export const PLANS = {
     price: 34900, // ₹349 in paise
     razorpayPlanId: process.env.RAZORPAY_PRO_PLAN_ID!,
     sessionsPerDay: 999,
-    features: ['all_types', 'full_feedback', 'cloud_tts', 'resume', 'jd_mode', 'priority_voice', 'analytics', 'email_reports'],
+    features: [
+      'all_types',
+      'full_feedback',
+      'cloud_tts',
+      'resume',
+      'jd_mode',
+      'priority_voice',
+      'analytics',
+      'email_reports',
+    ],
   },
 } as const
 

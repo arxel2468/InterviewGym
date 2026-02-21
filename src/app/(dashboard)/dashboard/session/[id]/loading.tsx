@@ -2,10 +2,10 @@ import { Loader2 } from 'lucide-react'
 
 export default function SessionLoading() {
   return (
-    <div className="flex items-center justify-center min-h-[50vh]">
+    <div className="flex min-h-[50vh] items-center justify-center">
       <div className="flex flex-col items-center gap-4">
-        <Loader2 className="w-8 h-8 text-violet-500 animate-spin" />
-        <p className="text-zinc-400 text-sm">Connecting to interviewer...</p>
+        <Loader2 className="h-8 w-8 animate-spin text-violet-500" />
+        <p className="text-sm text-zinc-400">Connecting to interviewer...</p>
       </div>
     </div>
   )
